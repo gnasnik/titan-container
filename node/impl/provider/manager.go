@@ -3,6 +3,7 @@ package provider
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/Filecoin-Titan/titan-container/api/types"
@@ -74,13 +75,16 @@ func (m *manager) GetStatistics(ctx context.Context) (*types.ResourcesStatistics
 }
 
 func (m *manager) CreateDeployment(ctx context.Context, deployment *types.Deployment) error {
-	k8sDeployment, err := ClusterDeploymentFromDeployment(deployment)
+	cDeployment, err := ClusterDeploymentFromDeployment(deployment)
 	if err != nil {
 		log.Errorf("CreateDeployment %s", err.Error())
 		return err
 	}
 
-	did := k8sDeployment.DeploymentID()
+	buf, _ := json.Marshal(cDeployment.ManifestGroup())
+	log.Infof("deploy service:%s", string(buf))
+
+	did := cDeployment.DeploymentID()
 	ns := builder.DidNS(did)
 
 	deploymentList, err := m.kc.ListDeployments(context.Background(), ns)
@@ -94,7 +98,7 @@ func (m *manager) CreateDeployment(ctx context.Context, deployment *types.Deploy
 	}
 
 	ctx = context.WithValue(ctx, builder.SettingsKey, builder.NewDefaultSettings())
-	return m.kc.Deploy(ctx, k8sDeployment)
+	return m.kc.Deploy(ctx, cDeployment)
 }
 
 func (m *manager) UpdateDeployment(ctx context.Context, deployment *types.Deployment) error {
@@ -140,12 +144,7 @@ func (m *manager) GetDeployment(ctx context.Context, id types.DeploymentID) (*ty
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	deploymentList, err := m.kc.ListDeployments(ctx, ns)
-	if err != nil {
-		return nil, err
-	}
-
-	services, err := k8sDeploymentsToServices(deploymentList)
+	services, err := m.getServices(ctx, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -322,4 +321,21 @@ func (m *manager) getEvents(ctx context.Context, ns string) (map[string][]types.
 	}
 
 	return eventMap, nil
+}
+
+func (m *manager) getServices(ctx context.Context, ns string) ([]*types.Service, error) {
+	deploymentList, err := m.kc.ListDeployments(ctx, ns)
+	if err != nil {
+		return nil, err
+	}
+
+	if deploymentList != nil && len(deploymentList.Items) > 0 {
+		return k8sDeploymentsToServices(deploymentList)
+	}
+
+	statefulSets, err := m.kc.ListStatefulSets(ctx, ns)
+	if err != nil {
+		return nil, err
+	}
+	return k8sStatefulSetsToServices(statefulSets)
 }

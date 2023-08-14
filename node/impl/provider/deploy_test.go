@@ -20,7 +20,7 @@ func TestCreateDeploy(t *testing.T) {
 	require.NoError(t, err)
 
 	port := types.Port{Port: 6379}
-	service := types.Service{Image: "test", Ports: []types.Port{port}, ComputeResources: types.ComputeResources{CPU: 0.1, Memory: 100, Storage: 100}}
+	service := types.Service{Image: "nginx:1.24.0", Ports: []types.Port{port}, ComputeResources: types.ComputeResources{CPU: 0.1, Memory: 100, Storage: types.Storage{Quantity: 100}}}
 	deploy := types.Deployment{
 		ID:       types.DeploymentID("2222"),
 		Owner:    "test",
@@ -38,7 +38,7 @@ func TestUplodateDeploy(t *testing.T) {
 
 	port := types.Port{Port: 6379}
 	ports := types.Ports([]types.Port{port})
-	service := types.Service{Image: "test", Ports: ports, ComputeResources: types.ComputeResources{CPU: 0.1, Memory: 100, Storage: 100}}
+	service := types.Service{Image: "test", Ports: ports, ComputeResources: types.ComputeResources{CPU: 0.1, Memory: 100, Storage: types.Storage{Quantity: 100}}}
 	deploy := types.Deployment{
 		ID:       types.DeploymentID("ccc"),
 		Owner:    "test",
@@ -103,6 +103,9 @@ func TestListDeployment(t *testing.T) {
 
 	if deploymentList == nil {
 		t.Logf("deploymentList == nil")
+	}
+	if len(deploymentList.Items) == 0 {
+		t.Logf("len(deploymentList.Items) == 0")
 	}
 	t.Logf("deployment:%#v", *deploymentList)
 	for _, deployment := range deploymentList.Items {

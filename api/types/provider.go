@@ -46,7 +46,7 @@ type GetProviderOption struct {
 type ResourcesStatistics struct {
 	Memory   Memory
 	CPUCores CPUCores
-	Storage  Storage
+	Storage  StorageStat
 }
 
 type Memory struct {
@@ -63,7 +63,7 @@ type CPUCores struct {
 	Pending     float64
 }
 
-type Storage struct {
+type StorageStat struct {
 	MaxStorage uint64
 	Available  uint64
 	Active     uint64

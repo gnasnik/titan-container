@@ -55,6 +55,17 @@ type Storage struct {
 	Attributes Attributes
 }
 
-func NewStorage(storage uint64) *Storage {
-	return &Storage{Quantity: NewResourceValue(storage)}
+func NewStorage(name string, quantity uint64, persistent bool, mount string) *Storage {
+	s := &Storage{Name: name, Quantity: NewResourceValue(quantity), Attributes: make(Attributes, 0)}
+	if persistent {
+		attr := Attribute{Key: "persistent", Value: "true"}
+		s.Attributes = append(s.Attributes, attr)
+	}
+
+	if len(mount) > 0 {
+		attr := Attribute{Key: "mount", Value: mount}
+		s.Attributes = append(s.Attributes, attr)
+	}
+
+	return s
 }

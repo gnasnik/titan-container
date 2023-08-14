@@ -14,6 +14,11 @@ import (
 
 const (
 	podReplicas = 1
+	// 1M
+	unitOfMemory = 1000000
+	// 1m
+	unitOfStorage = 1000000
+	unitOfCPU     = 1000
 )
 
 func ClusterDeploymentFromDeployment(deployment *types.Deployment) (builder.IClusterDeployment, error) {
@@ -104,7 +109,8 @@ func imageToServiceName(image string) string {
 }
 
 func resourceToManifestResource(resource *types.ComputeResources) manifest.ResourceUnits {
-	return *manifest.NewResourceUnits(uint64(resource.CPU*1000), uint64(resource.Memory*1000000), uint64(resource.Storage*1000000))
+	storage := manifest.NewStorage(resource.Storage.Name, uint64(resource.Storage.Quantity*unitOfStorage), resource.Storage.Persistent, resource.Storage.Mount)
+	return *manifest.NewResourceUnits(uint64(resource.CPU*unitOfCPU), uint64(resource.Memory*unitOfMemory), storage)
 }
 
 func serviceProto(protocol types.Protocol) (manifest.ServiceProtocol, error) {
@@ -159,13 +165,52 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 	container := deployment.Spec.Template.Spec.Containers[0]
 	service := &types.Service{Image: container.Image, Name: container.Name}
 	service.CPU = container.Resources.Limits.Cpu().AsApproximateFloat64()
-	service.Memory = container.Resources.Limits.Memory().Value() / 1000000
-	service.Storage = int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / 1000000
+	service.Memory = container.Resources.Limits.Memory().Value() / unitOfMemory
+
+	storage := int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / unitOfStorage
+	service.Storage = types.Storage{Quantity: storage}
 
 	status := types.ReplicasStatus{
 		TotalReplicas:     int(deployment.Status.Replicas),
 		ReadyReplicas:     int(deployment.Status.ReadyReplicas),
 		AvailableReplicas: int(deployment.Status.AvailableReplicas),
+	}
+	service.Status = status
+
+	return service, nil
+}
+
+func k8sStatefulSetsToServices(statefulSets *appsv1.StatefulSetList) ([]*types.Service, error) {
+	services := make([]*types.Service, 0, len(statefulSets.Items))
+
+	for _, statefulSet := range statefulSets.Items {
+		s, err := k8sStatefulSetToService(&statefulSet)
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, s)
+	}
+
+	return services, nil
+}
+
+func k8sStatefulSetToService(statefulSet *appsv1.StatefulSet) (*types.Service, error) {
+	if len(statefulSet.Spec.Template.Spec.Containers) == 0 {
+		return nil, fmt.Errorf("deployment container can not empty")
+	}
+
+	container := statefulSet.Spec.Template.Spec.Containers[0]
+	service := &types.Service{Image: container.Image, Name: container.Name}
+	service.CPU = container.Resources.Limits.Cpu().AsApproximateFloat64()
+	service.Memory = container.Resources.Limits.Memory().Value() / unitOfMemory
+
+	storage := int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / unitOfStorage
+	service.Storage = types.Storage{Quantity: storage, Persistent: true}
+
+	status := types.ReplicasStatus{
+		TotalReplicas:     int(statefulSet.Status.Replicas),
+		ReadyReplicas:     int(statefulSet.Status.ReadyReplicas),
+		AvailableReplicas: int(statefulSet.Status.AvailableReplicas),
 	}
 	service.Status = status
 

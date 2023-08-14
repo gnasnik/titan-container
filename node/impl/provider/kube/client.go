@@ -25,6 +25,7 @@ type Client interface {
 	DeleteNS(ctx context.Context, ns string) error
 	FetchNodeResources(ctx context.Context) (map[string]*nodeResource, error)
 	ListDeployments(ctx context.Context, ns string) (*appsv1.DeploymentList, error)
+	ListStatefulSets(ctx context.Context, ns string) (*appsv1.StatefulSetList, error)
 	ListServices(ctx context.Context, ns string) (*corev1.ServiceList, error)
 	ListPods(ctx context.Context, ns string, opts metav1.ListOptions) (*corev1.PodList, error)
 	PodLogs(ctx context.Context, ns string, podName string) (io.ReadCloser, error)
@@ -115,7 +116,7 @@ func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployme
 
 		persistent := false
 		for i := range service.Resources.Storage {
-			attrVal := service.Resources.Storage[i].Attributes.Find(builder.StorageClassDefault)
+			attrVal := service.Resources.Storage[i].Attributes.Find(builder.StorageAttributePersistent)
 			if persistent, _ = attrVal.AsBool(); persistent {
 				break
 			}
@@ -172,6 +173,10 @@ func (c *client) ListServices(ctx context.Context, ns string) (*corev1.ServiceLi
 
 func (c *client) ListDeployments(ctx context.Context, ns string) (*appsv1.DeploymentList, error) {
 	return c.kc.AppsV1().Deployments(ns).List(ctx, metav1.ListOptions{})
+}
+
+func (c *client) ListStatefulSets(ctx context.Context, ns string) (*appsv1.StatefulSetList, error) {
+	return c.kc.AppsV1().StatefulSets(ns).List(ctx, metav1.ListOptions{})
 }
 
 func (c *client) ListPods(ctx context.Context, ns string, opts metav1.ListOptions) (*corev1.PodList, error) {

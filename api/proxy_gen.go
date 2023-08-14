@@ -5,9 +5,9 @@ package api
 import (
 	"context"
 
-	"github.com/filecoin-project/go-jsonrpc/auth"
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	"github.com/Filecoin-Titan/titan-container/journal/alerting"
+	"github.com/filecoin-project/go-jsonrpc/auth"
 	"github.com/google/uuid"
 	"golang.org/x/xerrors"
 )

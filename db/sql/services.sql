@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS services(
     state INT DEFAULT 0,
     cpu FLOAT        DEFAULT 0,
     memory FLOAT        DEFAULT 0,
-    storage FLOAT        DEFAULT 0,
+    storage VARCHAR(128),
     env VARCHAR(128) DEFAULT NULL,
     arguments VARCHAR(128) DEFAULT NULL,
     deployment_id VARCHAR(128) NOT NULL,

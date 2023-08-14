@@ -15,7 +15,9 @@ import (
 
 const (
 	StorageAttributePersistent = "persistent"
+	StorageAttributeClass      = "class"
 	StorageClassDefault        = "default"
+	StorageAttributeMount      = "mount"
 )
 
 type workloadBase interface {
@@ -101,7 +103,7 @@ func (b *Workload) container() corev1.Container {
 		kcontainer.Resources.Limits[corev1.ResourceMemory] = resource.NewQuantity(int64(mem.Quantity.Val.Uint64()), resource.DecimalSI).DeepCopy()
 	}
 
-	for _, ephemeral := range service.Resources.Storage {
+	for i, ephemeral := range service.Resources.Storage {
 		attr := ephemeral.Attributes.Find(StorageAttributePersistent)
 		if persistent, _ := attr.AsBool(); !persistent {
 			requestedStorage := computeCommittedResources(b.settings.StorageCommitLevel, ephemeral.Quantity)
@@ -110,16 +112,31 @@ func (b *Workload) container() corev1.Container {
 
 			break
 		}
-	}
 
-	if service.Params != nil {
-		for _, params := range service.Params.Storage {
+		storageName := ephemeral.Name
+		if len(storageName) == 0 {
+			storageName = fmt.Sprintf("%d", i)
+		}
+
+		attrMount := ephemeral.Attributes.Find(StorageAttributeMount)
+		if mount, valid := attrMount.AsString(); valid {
 			kcontainer.VolumeMounts = append(kcontainer.VolumeMounts, corev1.VolumeMount{
 				// matches VolumeName in persistentVolumeClaims below
-				Name:      fmt.Sprintf("%s-%s", service.Name, params.Name),
-				ReadOnly:  params.ReadOnly,
-				MountPath: params.Mount,
+				Name: fmt.Sprintf("%s-%s", service.Name, storageName),
+				// ReadOnly:  params.ReadOnly,
+				MountPath: mount,
 			})
+		}
+	}
+
+	for _, ephemeral := range service.Resources.Storage {
+		attr := ephemeral.Attributes.Find(StorageAttributePersistent)
+		if persistent, _ := attr.AsBool(); persistent {
+			requestedStorage := computeCommittedResources(b.settings.StorageCommitLevel, ephemeral.Quantity)
+			kcontainer.Resources.Requests[corev1.ResourceEphemeralStorage] = resource.NewQuantity(int64(requestedStorage.Val.Uint64()), resource.DecimalSI).DeepCopy()
+			kcontainer.Resources.Limits[corev1.ResourceEphemeralStorage] = resource.NewQuantity(int64(ephemeral.Quantity.Val.Uint64()), resource.DecimalSI).DeepCopy()
+
+			break
 		}
 	}
 
@@ -183,16 +200,21 @@ func (b *Workload) persistentVolumeClaims() []corev1.PersistentVolumeClaim {
 
 	service := &b.deployment.ManifestGroup().Services[b.serviceIdx]
 
-	for _, storage := range service.Resources.Storage {
+	for i, storage := range service.Resources.Storage {
 		attr := storage.Attributes.Find(StorageAttributePersistent)
 		if persistent, valid := attr.AsBool(); !valid || !persistent {
 			continue
 		}
 
+		storageName := storage.Name
+		if len(storageName) == 0 {
+			storageName = fmt.Sprintf("%d", i)
+		}
+
 		volumeMode := corev1.PersistentVolumeFilesystem
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("%s-%s", service.Name, storage.Name),
+				Name: fmt.Sprintf("%s-%s", service.Name, storageName),
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -208,7 +230,7 @@ func (b *Workload) persistentVolumeClaims() []corev1.PersistentVolumeClaim {
 
 		pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.NewQuantity(int64(storage.Quantity.Val.Uint64()), resource.DecimalSI).DeepCopy()
 
-		attr = storage.Attributes.Find(StorageAttributePersistent)
+		attr = storage.Attributes.Find(StorageAttributeClass)
 		if class, valid := attr.AsString(); valid && class != StorageClassDefault {
 			pvc.Spec.StorageClassName = &class
 		}

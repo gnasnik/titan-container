@@ -124,7 +124,7 @@ var CreateDeployment = &cli.Command{
 					ComputeResources: types.ComputeResources{
 						CPU:     cctx.Float64("cpu"),
 						Memory:  cctx.Int64("mem"),
-						Storage: cctx.Int64("storage"),
+						Storage: types.Storage{Quantity: cctx.Int64("storage")},
 					},
 					Env:       env,
 					Arguments: cctx.StringSlice("args"),
@@ -243,7 +243,7 @@ var DeploymentList = &cli.Command{
 					"Available":   service.Status.AvailableReplicas,
 					"CPU":         service.CPU,
 					"Memory":      units.BytesSize(float64(service.Memory * units.MiB)),
-					"Storage":     units.BytesSize(float64(service.Storage * units.MiB)),
+					"Storage":     units.BytesSize(float64(service.Storage.Quantity * units.MiB)),
 					"Provider":    deployment.ProviderExposeIP,
 					"Port":        strings.Join(exposePorts, " "),
 					"CreatedTime": deployment.CreatedAt.Format(defaultDateTimeLayout),
