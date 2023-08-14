@@ -3,7 +3,8 @@ Services:
   - Image: mysql
     CPU: 0.2
     Memory: 500
-    Storage: 500
+    Storage:
+      Quantity: 500
     Ports:
       - Port: 3306
     Env:

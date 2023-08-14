@@ -241,46 +241,21 @@ func (m *manager) GetEvents(ctx context.Context, id types.DeploymentID) ([]*type
 }
 
 func (m *manager) getPods(ctx context.Context, ns string) (map[string]string, error) {
-	deploymentList, err := m.kc.ListDeployments(context.Background(), ns)
+	pods := make(map[string]string)
+	podList, err := m.kc.ListPods(context.Background(), ns, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	if deploymentList == nil {
-		return nil, fmt.Errorf("namespace %s do not exist deployment", ns)
+	if podList == nil {
+		return nil, nil
 	}
 
-	pods := make(map[string]string)
-	for _, deployment := range deploymentList.Items {
-		labels := deployment.ObjectMeta.Labels
-		podList, err := m.kc.ListPods(context.Background(), ns, labelsToListOptions(labels))
-		if err != nil {
-			return nil, err
-		}
-
-		if podList == nil {
-			continue
-		}
-
-		for _, pod := range podList.Items {
-			pods[pod.Name] = deployment.Name
-		}
+	for _, pod := range podList.Items {
+		pods[pod.Name] = pod.ObjectMeta.Labels[builder.TitanManifestServiceLabelName]
 	}
 
 	return pods, nil
-}
-
-func labelsToListOptions(labels map[string]string) metav1.ListOptions {
-	labelSelector := ""
-	for k, v := range labels {
-		if len(labelSelector) > 0 {
-			labelSelector = fmt.Sprintf("%s;%s=%s", labelSelector, k, v)
-		} else {
-			labelSelector = fmt.Sprintf("%s=%s", k, v)
-		}
-	}
-
-	return metav1.ListOptions{LabelSelector: labelSelector}
 }
 
 func (m *manager) getPodLogs(ctx context.Context, ns string, podName string) ([]byte, error) {

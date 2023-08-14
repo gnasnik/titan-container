@@ -3,7 +3,8 @@ Services:
   - Image: zscboy/candidate:0.1.12
     CPU: 0.1
     Memory: 100
-    Storage: 100
+    Storage:
+      Quantity: 500
     Ports:
       - Port: 2345
         Protocol: "TCP"
