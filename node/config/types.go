@@ -30,7 +30,7 @@ type ProviderCfg struct {
 	Timeout  string
 	Owner    string
 	HostURI  string
-	PublicIP string
+	ExposeIP string
 
 	KubeConfigPath string
 }

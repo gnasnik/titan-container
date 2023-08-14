@@ -65,9 +65,10 @@ func (b *service) Create() (*corev1.Service, error) { // nolint:golint,unparam
 			Labels: b.labels(),
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     b.workloadServiceType(),
-			Selector: b.labels(),
-			Ports:    ports,
+			Type:        b.workloadServiceType(),
+			Selector:    b.labels(),
+			Ports:       ports,
+			ExternalIPs: b.externalIPs(),
 		},
 	}
 
@@ -171,4 +172,17 @@ func (b *service) ports() ([]corev1.ServicePort, error) {
 	}
 
 	return ports, nil
+}
+
+func (b *service) externalIPs() []string {
+	ips := make([]string, 0)
+
+	service := &b.deployment.ManifestGroup().Services[b.serviceIdx]
+	for _, expose := range service.Expose {
+		if len(expose.IP) > 0 {
+			ips = append(ips, expose.IP)
+		}
+	}
+
+	return ips
 }

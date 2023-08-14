@@ -50,7 +50,7 @@ func deploymentToManifestGroup(deployment *types.Deployment) (*manifest.Group, e
 
 	services := make([]manifest.Service, 0, len(deployment.Services))
 	for _, service := range deployment.Services {
-		s, err := serviceToManifestService(service, deployment.Authority)
+		s, err := serviceToManifestService(service, deployment.ProviderExposeIP)
 		if err != nil {
 			return nil, err
 		}
@@ -60,13 +60,13 @@ func deploymentToManifestGroup(deployment *types.Deployment) (*manifest.Group, e
 	return &manifest.Group{Services: services}, nil
 }
 
-func serviceToManifestService(service *types.Service, Authority bool) (manifest.Service, error) {
+func serviceToManifestService(service *types.Service, exposeIP string) (manifest.Service, error) {
 	if len(service.Image) == 0 {
 		return manifest.Service{}, fmt.Errorf("service image can not empty")
 	}
 	name := imageToServiceName(service.Image)
 	resource := resourceToManifestResource(&service.ComputeResources)
-	exposes, err := exposesFromPorts(service.Ports)
+	exposes, err := exposesFromIPAndPorts(exposeIP, service.Ports)
 	if err != nil {
 		return manifest.Service{}, err
 	}
@@ -79,6 +79,7 @@ func serviceToManifestService(service *types.Service, Authority bool) (manifest.
 		Resources: &resource,
 		Expose:    make([]*manifest.ServiceExpose, 0),
 		Count:     podReplicas,
+		Params:    storageToServiceParams(&service.ComputeResources.Storage),
 	}
 
 	if len(exposes) > 0 {
@@ -86,6 +87,15 @@ func serviceToManifestService(service *types.Service, Authority bool) (manifest.
 	}
 
 	return s, nil
+}
+
+func storageToServiceParams(storage *types.Storage) *manifest.ServiceParams {
+	if !storage.Persistent {
+		return nil
+	}
+
+	param := manifest.StorageParams{Name: storage.Name, Mount: storage.Mount}
+	return &manifest.ServiceParams{Storage: []manifest.StorageParams{param}}
 }
 
 func envToManifestEnv(serviceEnv types.Env) []string {
@@ -126,7 +136,7 @@ func serviceProto(protocol types.Protocol) (manifest.ServiceProtocol, error) {
 	return serviceProto, nil
 }
 
-func exposesFromPorts(ports types.Ports) ([]*manifest.ServiceExpose, error) {
+func exposesFromIPAndPorts(exposeIP string, ports types.Ports) ([]*manifest.ServiceExpose, error) {
 	if len(ports) == 0 {
 		return nil, nil
 	}
@@ -138,6 +148,9 @@ func exposesFromPorts(ports types.Ports) ([]*manifest.ServiceExpose, error) {
 			return nil, err
 		}
 		serviceExpose := &manifest.ServiceExpose{Port: uint32(port.Port), ExternalPort: uint32(port.Port), Proto: proto, Global: true}
+		if len(exposeIP) > 0 {
+			serviceExpose.IP = exposeIP
+		}
 		serviceExposes = append(serviceExposes, serviceExpose)
 	}
 	return serviceExposes, nil

@@ -103,7 +103,7 @@ func (b *Workload) container() corev1.Container {
 		kcontainer.Resources.Limits[corev1.ResourceMemory] = resource.NewQuantity(int64(mem.Quantity.Val.Uint64()), resource.DecimalSI).DeepCopy()
 	}
 
-	for i, ephemeral := range service.Resources.Storage {
+	for _, ephemeral := range service.Resources.Storage {
 		attr := ephemeral.Attributes.Find(StorageAttributePersistent)
 		if persistent, _ := attr.AsBool(); !persistent {
 			requestedStorage := computeCommittedResources(b.settings.StorageCommitLevel, ephemeral.Quantity)
@@ -112,31 +112,20 @@ func (b *Workload) container() corev1.Container {
 
 			break
 		}
-
-		storageName := ephemeral.Name
-		if len(storageName) == 0 {
-			storageName = fmt.Sprintf("%d", i)
-		}
-
-		attrMount := ephemeral.Attributes.Find(StorageAttributeMount)
-		if mount, valid := attrMount.AsString(); valid {
-			kcontainer.VolumeMounts = append(kcontainer.VolumeMounts, corev1.VolumeMount{
-				// matches VolumeName in persistentVolumeClaims below
-				Name: fmt.Sprintf("%s-%s", service.Name, storageName),
-				// ReadOnly:  params.ReadOnly,
-				MountPath: mount,
-			})
-		}
 	}
 
-	for _, ephemeral := range service.Resources.Storage {
-		attr := ephemeral.Attributes.Find(StorageAttributePersistent)
-		if persistent, _ := attr.AsBool(); persistent {
-			requestedStorage := computeCommittedResources(b.settings.StorageCommitLevel, ephemeral.Quantity)
-			kcontainer.Resources.Requests[corev1.ResourceEphemeralStorage] = resource.NewQuantity(int64(requestedStorage.Val.Uint64()), resource.DecimalSI).DeepCopy()
-			kcontainer.Resources.Limits[corev1.ResourceEphemeralStorage] = resource.NewQuantity(int64(ephemeral.Quantity.Val.Uint64()), resource.DecimalSI).DeepCopy()
+	if service.Params != nil {
+		for i, params := range service.Params.Storage {
+			storageName := params.Name
+			if len(storageName) == 0 {
+				storageName = fmt.Sprintf("%d", i)
+			}
 
-			break
+			kcontainer.VolumeMounts = append(kcontainer.VolumeMounts, corev1.VolumeMount{
+				// matches VolumeName in persistentVolumeClaims below
+				Name:      fmt.Sprintf("%s-%s", service.Name, storageName),
+				MountPath: params.Mount,
+			})
 		}
 	}
 

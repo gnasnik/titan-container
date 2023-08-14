@@ -75,6 +75,10 @@ func (m *manager) GetStatistics(ctx context.Context) (*types.ResourcesStatistics
 }
 
 func (m *manager) CreateDeployment(ctx context.Context, deployment *types.Deployment) error {
+	if deployment.Authority {
+		deployment.ProviderExposeIP = m.providerCfg.ExposeIP
+	}
+
 	cDeployment, err := ClusterDeploymentFromDeployment(deployment)
 	if err != nil {
 		log.Errorf("CreateDeployment %s", err.Error())
@@ -102,6 +106,10 @@ func (m *manager) CreateDeployment(ctx context.Context, deployment *types.Deploy
 }
 
 func (m *manager) UpdateDeployment(ctx context.Context, deployment *types.Deployment) error {
+	if deployment.Authority {
+		deployment.ProviderExposeIP = m.providerCfg.ExposeIP
+	}
+
 	k8sDeployment, err := ClusterDeploymentFromDeployment(deployment)
 	if err != nil {
 		log.Errorf("UpdateDeployment %s", err.Error())
@@ -166,7 +174,7 @@ func (m *manager) GetDeployment(ctx context.Context, id types.DeploymentID) (*ty
 		}
 	}
 
-	return &types.Deployment{ID: id, Services: services, ProviderExposeIP: m.providerCfg.PublicIP}, nil
+	return &types.Deployment{ID: id, Services: services, ProviderExposeIP: m.providerCfg.ExposeIP}, nil
 }
 
 func (m *manager) GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.ServiceLog, error) {

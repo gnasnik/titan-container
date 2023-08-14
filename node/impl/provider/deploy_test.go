@@ -15,7 +15,7 @@ import (
 )
 
 func TestCreateDeploy(t *testing.T) {
-	config := &config.ProviderCfg{KubeConfigPath: "./test/config", PublicIP: "192.168.0.132"}
+	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
 	manager, err := NewManager(config)
 	require.NoError(t, err)
 
@@ -32,7 +32,7 @@ func TestCreateDeploy(t *testing.T) {
 }
 
 func TestUplodateDeploy(t *testing.T) {
-	config := &config.ProviderCfg{KubeConfigPath: "./test/config", PublicIP: "192.168.0.132"}
+	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
 	manager, err := NewManager(config)
 	require.NoError(t, err)
 
@@ -66,7 +66,7 @@ func TestDeleteDeploy(t *testing.T) {
 }
 
 func TestResourcesStatistics(t *testing.T) {
-	config := &config.ProviderCfg{KubeConfigPath: "./test/config", PublicIP: "192.168.0.132"}
+	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
 	manager, err := NewManager(config)
 	require.NoError(t, err)
 
@@ -78,7 +78,7 @@ func TestResourcesStatistics(t *testing.T) {
 }
 
 func TestGetDeployment(t *testing.T) {
-	config := &config.ProviderCfg{KubeConfigPath: "./test/config", PublicIP: "192.168.0.132"}
+	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
 	manager, err := NewManager(config)
 	require.NoError(t, err)
 
@@ -115,7 +115,7 @@ func TestListDeployment(t *testing.T) {
 }
 
 func TestGetLogs(t *testing.T) {
-	config := &config.ProviderCfg{KubeConfigPath: "./test/config", PublicIP: "192.168.0.132"}
+	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
 	manager, err := NewManager(config)
 	require.NoError(t, err)
 
@@ -139,7 +139,7 @@ func formatLogs(log string) []string {
 }
 
 func TestGetEvents(t *testing.T) {
-	config := &config.ProviderCfg{KubeConfigPath: "./test/config", PublicIP: "192.168.0.132"}
+	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
 	manager, err := NewManager(config)
 	require.NoError(t, err)
 
