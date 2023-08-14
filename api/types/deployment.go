@@ -162,6 +162,7 @@ type GetDeploymentOption struct {
 
 type ComputeResources struct {
 	CPU     float64 `db:"cpu"`
+	GPU     float64 `db:"gpu"`
 	Memory  int64   `db:"memory"`
 	Storage Storage `db:"storage"`
 }

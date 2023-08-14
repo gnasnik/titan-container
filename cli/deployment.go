@@ -66,6 +66,10 @@ var CreateDeployment = &cli.Command{
 			Name:  "cpu",
 			Usage: "cpu cores",
 		},
+		&cli.Float64Flag{
+			Name:  "gpu",
+			Usage: "gpu devices",
+		},
 		&cli.Int64Flag{
 			Name:  "mem",
 			Usage: "memory",
@@ -123,6 +127,7 @@ var CreateDeployment = &cli.Command{
 					},
 					ComputeResources: types.ComputeResources{
 						CPU:     cctx.Float64("cpu"),
+						GPU:     cctx.Float64("gpu"),
 						Memory:  cctx.Int64("mem"),
 						Storage: types.Storage{Quantity: cctx.Int64("storage")},
 					},
@@ -197,6 +202,7 @@ var DeploymentList = &cli.Command{
 			tablewriter.Col("Ready"),
 			tablewriter.Col("Available"),
 			tablewriter.Col("CPU"),
+			tablewriter.Col("GPU"),
 			tablewriter.Col("Memory"),
 			tablewriter.Col("Storage"),
 			tablewriter.Col("Provider"),
@@ -242,6 +248,7 @@ var DeploymentList = &cli.Command{
 					"Ready":       service.Status.ReadyReplicas,
 					"Available":   service.Status.AvailableReplicas,
 					"CPU":         service.CPU,
+					"GPU":         service.GPU,
 					"Memory":      units.BytesSize(float64(service.Memory * units.MiB)),
 					"Storage":     units.BytesSize(float64(service.Storage.Quantity * units.MiB)),
 					"Provider":    deployment.ProviderExposeIP,

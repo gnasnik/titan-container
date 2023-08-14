@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS services(
     expose_port INT DEFAULT 0,
     state INT DEFAULT 0,
     cpu FLOAT        DEFAULT 0,
+    gpu FLOAT        DEFAULT 0,
     memory FLOAT        DEFAULT 0,
     storage VARCHAR(128),
     env VARCHAR(128) DEFAULT NULL,

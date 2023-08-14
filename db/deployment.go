@@ -40,8 +40,8 @@ func addNewDeployment(ctx context.Context, tx *sqlx.Tx, deployment *types.Deploy
 }
 
 func addNewServices(ctx context.Context, tx *sqlx.Tx, services []*types.Service) error {
-	qry := `INSERT INTO services (id, name, image, ports, cpu, memory, storage, deployment_id, env, arguments, error_message, created_at, updated_at) 
-		        VALUES (:id,:name, :image, :ports, :cpu, :memory, :storage, :deployment_id, :env, :arguments, :error_message, :created_at, :updated_at)`
+	qry := `INSERT INTO services (id, name, image, ports, cpu, gpu, memory, storage, deployment_id, env, arguments, error_message, created_at, updated_at) 
+		        VALUES (:id,:name, :image, :ports, :cpu, :gpu, :memory, :storage, :deployment_id, :env, :arguments, :error_message, :created_at, :updated_at)`
 	_, err := tx.NamedExecContext(ctx, qry, services)
 
 	return err
@@ -54,9 +54,11 @@ type DeploymentService struct {
 
 func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploymentOption) ([]*types.Deployment, error) {
 	var ds []*DeploymentService
-	qry := `SELECT d.*, s.image as 'service.image', 
+	qry := `SELECT d.*, 
+       		s.image as 'service.image', 
 			s.name as 'service.name',
 			s.cpu as 'service.cpu', 
+			s.gpu as 'service.gpu', 
 			s.memory as 'service.memory',
 			s.storage as 'service.storage', 
 			s.ports as 'service.ports', 
