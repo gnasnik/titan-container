@@ -51,7 +51,7 @@ func TestUplodateDeploy(t *testing.T) {
 
 func TestDeleteDeploy(t *testing.T) {
 	kubeconfig := "./test/config"
-	client, err := kube.NewClient(kubeconfig)
+	client, err := kube.NewClient(kubeconfig, config.DefaultProviderCfg())
 	require.NoError(t, err)
 
 	deploy := types.Deployment{
@@ -95,7 +95,7 @@ func TestGetDeployment(t *testing.T) {
 
 func TestListDeployment(t *testing.T) {
 	kubeconfig := "./test/config"
-	client, err := kube.NewClient(kubeconfig)
+	client, err := kube.NewClient(kubeconfig, config.DefaultProviderCfg())
 	require.NoError(t, err)
 
 	deploymentList, err := client.ListDeployments(context.Background(), "bbbbb")

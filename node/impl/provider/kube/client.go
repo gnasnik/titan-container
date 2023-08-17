@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/Filecoin-Titan/titan-container/node/config"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	logging "github.com/ipfs/go-log/v2"
 	appsv1 "k8s.io/api/apps/v1"
@@ -33,9 +34,10 @@ type Client interface {
 }
 
 type client struct {
-	kc   kubernetes.Interface
-	metc metricsclient.Interface
-	log  *logging.ZapEventLogger
+	kc             kubernetes.Interface
+	metc           metricsclient.Interface
+	log            *logging.ZapEventLogger
+	providerConfig *config.ProviderCfg
 }
 
 func openKubeConfig(cfgPath string) (*rest.Config, error) {
@@ -64,8 +66,8 @@ func openKubeConfig(cfgPath string) (*rest.Config, error) {
 	return cfg, err
 }
 
-func NewClient(configPath string) (Client, error) {
-	config, err := openKubeConfig(configPath)
+func NewClient(kubeConfigPath string, providerConfig *config.ProviderCfg) (Client, error) {
+	config, err := openKubeConfig(kubeConfigPath)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +85,7 @@ func NewClient(configPath string) (Client, error) {
 
 	var log = logging.Logger("client")
 
-	return &client{kc: clientSet, metc: metc, log: log}, nil
+	return &client{kc: clientSet, metc: metc, log: log, providerConfig: providerConfig}, nil
 }
 
 func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployment) error {
@@ -142,7 +144,7 @@ func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployme
 		serviceBuilderLocal := builder.BuildService(workload, false)
 		if serviceBuilderLocal.Any() {
 			if err := applyService(ctx, c.kc, serviceBuilderLocal); err != nil {
-				c.log.Error("applying local service err %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
+				c.log.Errorf("applying local service err %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
 				return err
 			}
 		}
@@ -150,10 +152,22 @@ func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployme
 		serviceBuilderGlobal := builder.BuildService(workload, true)
 		if serviceBuilderGlobal.Any() {
 			if err := applyService(ctx, c.kc, serviceBuilderGlobal); err != nil {
-				c.log.Error("applying global service err %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
+				c.log.Errorf("applying global service err %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
 				return err
 			}
 		}
+
+		if len(c.providerConfig.HostName) > 0 {
+			for _, expose := range service.Expose {
+				if builder.ShouldBeIngress(expose) {
+					hostDirective := builder.BuildHostNameDirective(ns.Name(), c.providerConfig.HostName, service.Name, c.providerConfig.IngressClassName, expose)
+					if err := applyIngress(ctx, c.kc, builder.BuildIngress(workload, hostDirective)); err != nil {
+						c.log.Errorf("applying ingress error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
+					}
+				}
+			}
+		}
+
 	}
 
 	return nil

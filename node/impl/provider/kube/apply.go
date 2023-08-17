@@ -115,3 +115,21 @@ func applyService(ctx context.Context, kc kubernetes.Interface, b builder.Servic
 	}
 	return err
 }
+
+func applyIngress(ctx context.Context, kc kubernetes.Interface, b builder.Ingress) error {
+	obj, err := kc.NetworkingV1().Ingresses(b.NS()).Get(ctx, b.Name(), metav1.GetOptions{})
+
+	switch {
+	case err == nil:
+		obj, err = b.Update(obj)
+		if err == nil {
+			_, err = kc.NetworkingV1().Ingresses(b.NS()).Update(ctx, obj, metav1.UpdateOptions{})
+		}
+	case errors.IsNotFound(err):
+		obj, err = b.Create()
+		if err == nil {
+			_, err = kc.NetworkingV1().Ingresses(b.NS()).Create(ctx, obj, metav1.CreateOptions{})
+		}
+	}
+	return err
+}

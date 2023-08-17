@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -120,10 +121,10 @@ func imageToServiceName(image string) string {
 
 func resourceToManifestResource(resource *types.ComputeResources) manifest.ResourceUnits {
 	storage := manifest.NewStorage(resource.Storage.Name, uint64(resource.Storage.Quantity*unitOfStorage), resource.Storage.Persistent, resource.Storage.Mount)
-	return *manifest.NewResourceUnits(uint64(resource.CPU*unitOfCPU), uint64(resource.Memory*unitOfMemory), storage)
+	return *manifest.NewResourceUnits(uint64(resource.CPU*unitOfCPU), uint64(resource.GPU), uint64(resource.Memory*unitOfMemory), storage)
 }
 
-func serviceProto(protocol types.Protocol) (manifest.ServiceProtocol, error) {
+func toServiceProto(protocol types.Protocol) (manifest.ServiceProtocol, error) {
 	if len(protocol) == 0 {
 		return manifest.TCP, nil
 	}
@@ -143,7 +144,7 @@ func exposesFromIPAndPorts(exposeIP string, ports types.Ports) ([]*manifest.Serv
 
 	serviceExposes := make([]*manifest.ServiceExpose, 0, len(ports))
 	for _, port := range ports {
-		proto, err := serviceProto(port.Protocol)
+		proto, err := toServiceProto(port.Protocol)
 		if err != nil {
 			return nil, err
 		}
@@ -179,6 +180,12 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 	service := &types.Service{Image: container.Image, Name: container.Name}
 	service.CPU = container.Resources.Limits.Cpu().AsApproximateFloat64()
 	service.Memory = container.Resources.Limits.Memory().Value() / unitOfMemory
+
+	gpu := container.Resources.Limits.Name(builder.ResourceGPUNvidia, resource.DecimalSI).AsApproximateFloat64()
+	if gpu == 0 {
+		gpu = container.Resources.Limits.Name(builder.ResourceGPUAMD, resource.DecimalSI).AsApproximateFloat64()
+	}
+	service.GPU = gpu
 
 	storage := int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / unitOfStorage
 	service.Storage = types.Storage{Quantity: storage}
@@ -244,7 +251,12 @@ func k8sServiceToPortMap(serviceList *corev1.ServiceList) (map[string]types.Port
 func servicePortsToPortPairs(servicePorts []corev1.ServicePort) types.Ports {
 	ports := make([]types.Port, 0, len(servicePorts))
 	for _, servicePort := range servicePorts {
-		port := types.Port{Port: int(servicePort.TargetPort.IntVal), Protocol: types.Protocol(servicePort.Protocol)}
+		port := types.Port{
+			Port:       int(servicePort.TargetPort.IntVal),
+			Protocol:   types.Protocol(servicePort.Protocol),
+			ExposePort: int(servicePort.Port),
+		}
+
 		if servicePort.NodePort != 0 {
 			port.ExposePort = int(servicePort.NodePort)
 		}

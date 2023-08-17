@@ -16,6 +16,8 @@ type deployment struct {
 	Workload
 }
 
+var _ Deployment = (*deployment)(nil)
+
 func NewDeployment(workload Workload) Deployment {
 	d := &deployment{
 		Workload: workload,

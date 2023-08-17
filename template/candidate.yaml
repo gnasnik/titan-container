@@ -1,10 +1,13 @@
 Name: candidate
+Authority: true
 Services:
   - Image: zscboy/candidate:0.1.12
     CPU: 0.1
     Memory: 100
     Storage:
       Quantity: 500
+      Persistent: true
+      Mount: "/root/.titancandidate"
     Ports:
       - Port: 2345
         Protocol: "TCP"
@@ -12,6 +15,6 @@ Services:
         Protocol: "UDP"
       - Port: 9000
     Env:
-      KEY: "eyJub2RlX2lkIjoiY19jOWJlZWU0ODljMmE0ZDNlYWI1ZTcyOTFiMGY4OTc1ZCIsImFyZWFfaWQiOiJBc2lhLUNoaW5hLUd1YW5nZG9uZy1TaGVuemhlbiIsImFjdGl2YXRpb25fa2V5IjoiZGUwMDg0ZmEwMzM1YjZjOGFiOTM1MDg4MjIwZDM4MTAiLCJub2RlX3R5cGUiOjJ9"
+      KEY: "eyJub2RlX2lkIjoiY18xMjI0ZTM5ZTEzNjE0MDQyYTE3YzlhYTVkZDgwYTEwMCIsImFyZWFfaWQiOiJBc2lhLUNoaW5hLUd1YW5nZG9uZy1TaGVuemhlbiIsImFjdGl2YXRpb25fa2V5IjoiNWUzMmRmM2ExOTM0ZWI4NTUzZWE1ZGU4YTRmZmQ2NTIiLCJub2RlX3R5cGUiOjJ9"
       LOCATOR_API_INFO: "https://192.168.0.215:5000"
       TITAN_IPFSAPIURL: "http://192.168.0.132:5001"

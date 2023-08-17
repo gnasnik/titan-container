@@ -163,7 +163,7 @@ func (b *netPol) Create() ([]*netv1.NetworkPolicy, error) { // nolint:golint,unp
 				portsWithIP = append(portsWithIP, entry)
 			}
 
-			if !expose.Global || shouldBeIngress(expose) {
+			if !expose.Global || ShouldBeIngress(expose) {
 				continue
 			}
 

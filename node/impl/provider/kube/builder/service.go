@@ -112,7 +112,7 @@ func (b *service) Any() bool {
 	service := &b.deployment.ManifestGroup().Services[b.serviceIdx]
 
 	for _, expose := range service.Expose {
-		exposeIsIngress := shouldBeIngress(expose)
+		exposeIsIngress := ShouldBeIngress(expose)
 		if b.requireNodePort && exposeIsIngress {
 			continue
 		}
@@ -137,7 +137,7 @@ func (b *service) ports() ([]corev1.ServicePort, error) {
 	ports := make([]corev1.ServicePort, 0, len(service.Expose))
 	portsAdded := make(map[string]struct{})
 	for i, expose := range service.Expose {
-		shouldBeIngress := shouldBeIngress(expose)
+		shouldBeIngress := ShouldBeIngress(expose)
 		if expose.Global == b.requireNodePort || (!b.requireNodePort && shouldBeIngress) {
 			if b.requireNodePort && shouldBeIngress {
 				continue

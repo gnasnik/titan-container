@@ -21,7 +21,7 @@ type ServiceExpose struct {
 	Service                string
 	Global                 bool
 	Hosts                  []string
-	HttpOptions            ServiceExposeHTTPOptions
+	HTTPOptions            ServiceExposeHTTPOptions
 	IP                     string
 	EndpointSequenceNumber uint32
 }

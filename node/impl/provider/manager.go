@@ -3,7 +3,6 @@ package provider
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/Filecoin-Titan/titan-container/api/types"
@@ -35,7 +34,7 @@ type manager struct {
 var _ Manager = (*manager)(nil)
 
 func NewManager(config *config.ProviderCfg) (Manager, error) {
-	client, err := kube.NewClient(config.KubeConfigPath)
+	client, err := kube.NewClient(config.KubeConfigPath, config)
 	if err != nil {
 		return nil, err
 	}
@@ -84,9 +83,6 @@ func (m *manager) CreateDeployment(ctx context.Context, deployment *types.Deploy
 		log.Errorf("CreateDeployment %s", err.Error())
 		return err
 	}
-
-	buf, _ := json.Marshal(cDeployment.ManifestGroup())
-	log.Infof("deploy service:%s", string(buf))
 
 	did := cDeployment.DeploymentID()
 	ns := builder.DidNS(did)

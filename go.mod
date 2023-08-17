@@ -37,8 +37,8 @@ require (
 	go.uber.org/fx v1.20.0
 	golang.org/x/sys v0.8.0
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
-	k8s.io/api v0.27.3
-	k8s.io/apimachinery v0.27.3
+	k8s.io/api v0.27.4
+	k8s.io/apimachinery v0.27.4
 	k8s.io/client-go v0.27.3
 	k8s.io/metrics v0.27.3
 	sigs.k8s.io/yaml v1.3.0

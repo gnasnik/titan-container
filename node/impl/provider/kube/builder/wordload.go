@@ -18,6 +18,12 @@ const (
 	StorageAttributeClass      = "class"
 	StorageClassDefault        = "default"
 	StorageAttributeMount      = "mount"
+
+	ResourceGPUNvidia  = corev1.ResourceName("nvidia.com/gpu")
+	ResourceGPUAMD     = corev1.ResourceName("amd.com/gpu")
+	GPUVendorNvidia    = "nvidia"
+	GPUVendorAMD       = "amd"
+	GPUAttributeVendor = "vendor"
 )
 
 type workloadBase interface {
@@ -89,6 +95,33 @@ func (b *Workload) container() corev1.Container {
 			Privileged:               &falseValue,
 			AllowPrivilegeEscalation: &falseValue,
 		},
+	}
+
+	if gpu := service.Resources.GPU; gpu != nil && gpu.Units.Val.Uint64() > 0 && len(gpu.Attributes) > 0 {
+		var resourceName corev1.ResourceName
+
+		attr := gpu.Attributes.Find(GPUAttributeVendor)
+
+		if vendor, valid := attr.AsString(); valid {
+			switch vendor {
+			case GPUVendorNvidia:
+				resourceName = ResourceGPUNvidia
+			case GPUVendorAMD:
+				resourceName = ResourceGPUAMD
+			default:
+				fmt.Println("requested for unsupported GPU vendor")
+			}
+		}
+
+		// GPUs are only supposed to be specified in the limits section, which means
+		//  - can specify GPU limits without specifying requests, because Kubernetes will use the limit as the request value by default.
+		//  - can specify GPU in both limits and requests but these two values must be equal.
+		//  - cannot specify GPU requests without specifying limits.
+		if len(resourceName) > 0 {
+			requestedGPU := computeCommittedResources(b.settings.GPUCommitLevel, gpu.Units)
+			kcontainer.Resources.Requests[resourceName] = resource.NewQuantity(int64(requestedGPU.Val.Uint64()), resource.DecimalSI).DeepCopy()
+			kcontainer.Resources.Limits[resourceName] = resource.NewQuantity(int64(gpu.Units.Val.Uint64()), resource.DecimalSI).DeepCopy()
+		}
 	}
 
 	if cpu := service.Resources.CPU; cpu != nil {
