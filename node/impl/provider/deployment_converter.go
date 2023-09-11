@@ -7,7 +7,6 @@ import (
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/manifest"
-	"github.com/google/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -65,7 +64,7 @@ func serviceToManifestService(service *types.Service, exposeIP string) (manifest
 	if len(service.Image) == 0 {
 		return manifest.Service{}, fmt.Errorf("service image can not empty")
 	}
-	name := imageToServiceName(service.Image)
+	serviceName := getServiceName(service)
 	resource := resourceToManifestResource(&service.ComputeResources)
 	exposes, err := exposesFromIPAndPorts(exposeIP, service.Ports)
 	if err != nil {
@@ -73,7 +72,7 @@ func serviceToManifestService(service *types.Service, exposeIP string) (manifest
 	}
 
 	s := manifest.Service{
-		Name:      name,
+		Name:      serviceName,
 		Image:     service.Image,
 		Args:      service.Arguments,
 		Env:       envToManifestEnv(service.Env),
@@ -108,15 +107,15 @@ func envToManifestEnv(serviceEnv types.Env) []string {
 	return envs
 }
 
-func imageToServiceName(image string) string {
-	names := strings.Split(image, "/")
+func getServiceName(service *types.Service) string {
+	if len(service.Name) > 0 {
+		return service.Name
+	}
+
+	names := strings.Split(service.Image, "/")
 	names = strings.Split(names[len(names)-1], ":")
 	serviceName := names[0]
-
-	uuidString := uuid.NewString()
-	uuidString = strings.Replace(uuidString, "-", "", -1)
-
-	return fmt.Sprintf("%s-%s", serviceName, uuidString)
+	return serviceName
 }
 
 func resourceToManifestResource(resource *types.ComputeResources) manifest.ResourceUnits {
@@ -183,7 +182,7 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 	}
 
 	container := deployment.Spec.Template.Spec.Containers[0]
-	service := &types.Service{Image: container.Image, Name: container.Name}
+	service := &types.Service{Image: container.Image, Name: deployment.Name}
 	service.CPU = container.Resources.Limits.Cpu().AsApproximateFloat64()
 	service.Memory = container.Resources.Limits.Memory().Value() / unitOfMemory
 

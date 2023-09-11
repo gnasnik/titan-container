@@ -61,6 +61,10 @@ func (b *ingress) Update(obj *netv1.Ingress) (*netv1.Ingress, error) {
 	return obj, nil
 }
 
+func (b *ingress) Name() string {
+	return b.directive.Hostname
+}
+
 func kubeNginxIngressAnnotations(directive *HostnameDirective) map[string]string {
 	// For kubernetes/ingress-nginx
 	// https://github.com/kubernetes/ingress-nginx
