@@ -271,6 +271,12 @@ var runCmd = &cli.Command{
 			return err
 		}
 
+		rpcURL := "http://" + address + "/rpc/v0"
+		if len(providerCfg.API.RemoteListenAddress) > 0 {
+			rpcURL = "http://" + providerCfg.API.RemoteListenAddress + "/rpc/v0"
+
+		}
+
 		managerSession, err := managerAPI.Session(ctx)
 		if err != nil {
 			return xerrors.Errorf("getting manager session: %w", err)
@@ -312,7 +318,7 @@ var runCmd = &cli.Command{
 
 					select {
 					case <-readyCh:
-						if err := managerAPI.ProviderConnect(ctx, "http://"+providerCfg.API.RemoteListenAddress+"/rpc/v0",
+						if err := managerAPI.ProviderConnect(ctx, rpcURL,
 							&types.Provider{
 								ID:      types.ProviderID(providerID),
 								Owner:   providerCfg.Owner,
