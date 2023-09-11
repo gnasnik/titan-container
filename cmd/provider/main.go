@@ -279,6 +279,8 @@ var runCmd = &cli.Command{
 		waitQuietCh := func() chan struct{} {
 			out := make(chan struct{})
 			go func() {
+				// waiting for server ready
+				time.Sleep(time.Second)
 				close(out)
 			}()
 			return out
@@ -310,7 +312,7 @@ var runCmd = &cli.Command{
 
 					select {
 					case <-readyCh:
-						if err := managerAPI.ProviderConnect(ctx, "http://"+address+"/rpc/v0",
+						if err := managerAPI.ProviderConnect(ctx, "http://"+providerCfg.API.RemoteListenAddress+"/rpc/v0",
 							&types.Provider{
 								ID:      types.ProviderID(providerID),
 								Owner:   providerCfg.Owner,

@@ -25,7 +25,7 @@ func BuildHostNameDirective(ns, hostName, serviceName, ingressName string, servi
 	directive := &HostnameDirective{
 		Hostname:    newHostName(ns, hostName),
 		ServiceName: serviceName,
-		ServicePort: int32(serviceExpose.Port),
+		ServicePort: int32(serviceExpose.ExternalPort),
 		IngressName: ingressName,
 	}
 	/*

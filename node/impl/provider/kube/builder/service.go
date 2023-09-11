@@ -179,6 +179,10 @@ func (b *service) externalIPs() []string {
 
 	service := &b.deployment.ManifestGroup().Services[b.serviceIdx]
 	for _, expose := range service.Expose {
+		if ShouldBeIngress(expose) {
+			continue
+		}
+
 		if len(expose.IP) > 0 {
 			ips = append(ips, expose.IP)
 		}

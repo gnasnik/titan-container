@@ -148,7 +148,13 @@ func exposesFromIPAndPorts(exposeIP string, ports types.Ports) ([]*manifest.Serv
 		if err != nil {
 			return nil, err
 		}
-		serviceExpose := &manifest.ServiceExpose{Port: uint32(port.Port), ExternalPort: uint32(port.Port), Proto: proto, Global: true}
+
+		externalPort := uint32(port.Port)
+		if port.ExposePort != 0 {
+			externalPort = uint32(port.ExposePort)
+		}
+
+		serviceExpose := &manifest.ServiceExpose{Port: uint32(port.Port), ExternalPort: externalPort, Proto: proto, Global: true}
 		if len(exposeIP) > 0 {
 			serviceExpose.IP = exposeIP
 		}
