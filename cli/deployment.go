@@ -26,6 +26,7 @@ var deploymentCmds = &cli.Command{
 		DeploymentList,
 		DeleteDeployment,
 		StatusDeployment,
+		UpdateDeployment,
 	},
 }
 
@@ -378,5 +379,65 @@ var StatusDeployment = &cli.Command{
 		}
 
 		return nil
+	},
+}
+
+var UpdateDeployment = &cli.Command{
+	Name:  "update",
+	Usage: "update deployment",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "provider-id",
+			Usage:    "the provider id",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "deployment-id",
+			Usage:    "the deployment id",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:  "template",
+			Usage: "from the template file",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		api, closer, err := GetManagerAPI(cctx)
+		if err != nil {
+			return err
+		}
+		defer closer()
+
+		ctx := ReqContext(cctx)
+		providerID := types.ProviderID(cctx.String("provider-id"))
+
+		deploymentID := types.DeploymentID(cctx.String("deployment-id"))
+
+		if providerID == "" {
+			return errors.Errorf("providerID empty")
+		}
+
+		if deploymentID == "" {
+			return errors.Errorf("deploymentID empty")
+		}
+
+		if cctx.String("template") == "" {
+			return errors.Errorf("template empty")
+		}
+
+		yamlFiles, err := os.ReadFile(cctx.String("template"))
+		if err != nil {
+			return err
+		}
+
+		var deployment types.Deployment
+		err = yaml.Unmarshal(yamlFiles, &deployment)
+		if err != nil {
+			return err
+		}
+
+		deployment.ProviderID = providerID
+		deployment.ID = deploymentID
+		return api.UpdateDeployment(ctx, &deployment)
 	},
 }

@@ -142,7 +142,7 @@ func (m *Manager) UpdateDeployment(ctx context.Context, deployment *types.Deploy
 		return err
 	}
 
-	err = providerApi.CreateDeployment(ctx, deployment)
+	err = providerApi.UpdateDeployment(ctx, deployment)
 	if err != nil {
 		return err
 	}
