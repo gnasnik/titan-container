@@ -45,7 +45,7 @@ type ManagerStruct struct {
 	CommonStruct
 
 	Internal struct {
-		CloseDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
+		CloseDeployment func(p0 context.Context, p1 *types.Deployment, p2 bool) error `perm:"admin"`
 
 		CreateDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
 
@@ -206,14 +206,14 @@ func (s *CommonStub) Version(p0 context.Context) (APIVersion, error) {
 	return *new(APIVersion), ErrNotSupported
 }
 
-func (s *ManagerStruct) CloseDeployment(p0 context.Context, p1 *types.Deployment) error {
+func (s *ManagerStruct) CloseDeployment(p0 context.Context, p1 *types.Deployment, p2 bool) error {
 	if s.Internal.CloseDeployment == nil {
 		return ErrNotSupported
 	}
-	return s.Internal.CloseDeployment(p0, p1)
+	return s.Internal.CloseDeployment(p0, p1, p2)
 }
 
-func (s *ManagerStub) CloseDeployment(p0 context.Context, p1 *types.Deployment) error {
+func (s *ManagerStub) CloseDeployment(p0 context.Context, p1 *types.Deployment, p2 bool) error {
 	return ErrNotSupported
 }
 

@@ -155,14 +155,22 @@ func (m *Manager) UpdateDeployment(ctx context.Context, deployment *types.Deploy
 	return nil
 }
 
-func (m *Manager) CloseDeployment(ctx context.Context, deployment *types.Deployment) error {
-	providerApi, err := m.ProviderManager.Get(deployment.ProviderID)
-	if err != nil {
-		return err
+func (m *Manager) CloseDeployment(ctx context.Context, deployment *types.Deployment, force bool) error {
+	remoteClose := func() error {
+		providerApi, err := m.ProviderManager.Get(deployment.ProviderID)
+		if err != nil {
+			return err
+		}
+
+		err = providerApi.CloseDeployment(ctx, deployment)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
-	err = providerApi.CloseDeployment(ctx, deployment)
-	if err != nil {
+	if err := remoteClose(); err != nil && !force {
 		return err
 	}
 

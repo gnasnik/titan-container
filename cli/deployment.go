@@ -268,7 +268,12 @@ var DeploymentList = &cli.Command{
 var DeleteDeployment = &cli.Command{
 	Name:  "delete",
 	Usage: "delete deployment",
-	Flags: []cli.Flag{},
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "f",
+			Usage: "Force delete",
+		},
+	},
 	Action: func(cctx *cli.Context) error {
 		if cctx.NArg() != 1 {
 			return IncorrectNumArgs(cctx)
@@ -295,7 +300,7 @@ var DeleteDeployment = &cli.Command{
 		}
 
 		for _, deployment := range deployments {
-			err = api.CloseDeployment(ctx, deployment)
+			err = api.CloseDeployment(ctx, deployment, cctx.Bool("f"))
 			if err != nil {
 				log.Errorf("delete deployment failed: %v", err)
 			}

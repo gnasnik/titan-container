@@ -33,7 +33,7 @@ func (m *ManagerDB) CreateDeployment(ctx context.Context, deployment *types.Depl
 func addNewDeployment(ctx context.Context, tx *sqlx.Tx, deployment *types.Deployment) error {
 	qry := `INSERT INTO deployments (id, name, owner, state, type, authority, version, balance, cost, expiration, provider_id, created_at, updated_at) 
 		        VALUES (:id, :name, :owner, :state, :type, :authority, :version, :balance, :cost, :expiration, :provider_id, :created_at, :updated_at)
-		         ON DUPLICATE KEY UPDATE  state=:state, authority=:authority, version=:version, balance=:balance, cost=:cost, expiration=:expiration, updated_at=:updated_at`
+		         ON DUPLICATE KEY UPDATE  authority=:authority, version=:version, balance=:balance, cost=:cost, expiration=:expiration, updated_at=:updated_at`
 	_, err := tx.NamedExecContext(ctx, qry, deployment)
 
 	return err
