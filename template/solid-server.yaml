@@ -1,0 +1,18 @@
+Name: solid-server
+ProviderID: "c4889373-df16-4241-b74a-f6b6f3746e52"
+Authority: true
+Services:
+  - Image: solidproject/community-server:latest
+    CPU: 0.5
+    Memory: 500
+    Storage:
+      Quantity: 500
+      Persistent: true
+      Mount: "/data"
+    Ports:
+      - Port: 3312
+        ExposePort: 80
+    Arguments:
+      - "--port=3312"
+      - "--baseUrl=https://container2.titannet.io/"
+      - "--rootFilePath=/data"

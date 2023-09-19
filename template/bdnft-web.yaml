@@ -1,0 +1,12 @@
+Name: bdnft-web
+Services:
+  - Image: titanhub/bdnft-web:1.0.2
+    CPU: 0.2
+    Memory: 500
+    Storage:
+      Quantity: 500
+    Ports:
+      - Port: 80
+        ExposePort: 80
+    Env:
+      VITE_REQUEST_BASE_URL: "https://42979a0970d34f35aacb1e1e0f624679.container2.titannet.io"
