@@ -49,6 +49,8 @@ func (b *statefulSet) Create() (*appsv1.StatefulSet, error) { // nolint:golint,u
 					AutomountServiceAccountToken: &falseValue,
 					Containers:                   []corev1.Container{b.container()},
 					ImagePullSecrets:             b.imagePullSecrets(),
+					NodeSelector:                 map[string]string{titanNodeSelector: b.osType()},
+					Tolerations:                  b.tolerations(),
 				},
 			},
 			VolumeClaimTemplates: b.persistentVolumeClaims(),
@@ -66,6 +68,7 @@ func (b *statefulSet) Update(obj *appsv1.StatefulSet) (*appsv1.StatefulSet, erro
 	obj.Spec.Template.Spec.Containers = []corev1.Container{b.container()}
 	obj.Spec.Template.Spec.ImagePullSecrets = b.imagePullSecrets()
 	obj.Spec.VolumeClaimTemplates = b.persistentVolumeClaims()
+	obj.Spec.Template.Spec.NodeSelector = map[string]string{titanNodeSelector: b.osType()}
 
 	return obj, nil
 }

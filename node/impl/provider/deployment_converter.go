@@ -80,6 +80,7 @@ func serviceToManifestService(service *types.Service, exposeIP string) (manifest
 		Expose:    make([]*manifest.ServiceExpose, 0),
 		Count:     podReplicas,
 		Params:    storageToServiceParams(&service.ComputeResources.Storage),
+		OSType:    string(service.OSType),
 	}
 
 	if len(exposes) > 0 {

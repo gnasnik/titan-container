@@ -18,6 +18,10 @@ const (
 
 	titanNetworkNamespace = "titan.provider/namespace"
 
+	titanNodeSelector = "kubernetes.io/os"
+	osTypeLinux       = "linux"
+	osTypeWindows     = "windows"
+
 // AkashLeaseOwnerLabelName      = "akash.network/lease.id.owner"
 // AkashLeaseDSeqLabelName       = "akash.network/lease.id.dseq"
 // AkashLeaseGSeqLabelName       = "akash.network/lease.id.gseq"

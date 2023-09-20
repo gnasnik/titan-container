@@ -39,6 +39,13 @@ const (
 	DeploymentTypeWeb DeploymentType = iota + 1
 )
 
+type OSType string
+
+const (
+	OSTypeWindows OSType = "windows"
+	OSTypeLinux   OSType = "linux"
+)
+
 type Deployment struct {
 	ID        DeploymentID    `db:"id"`
 	Name      string          `db:"name"`
@@ -74,6 +81,7 @@ type Service struct {
 	ErrorMessage string         `db:"error_message"`
 	Arguments    Arguments      `db:"arguments"`
 	ComputeResources
+	OSType OSType `db:"os_type"`
 
 	// Internal
 	ID           int64        `db:"id"`

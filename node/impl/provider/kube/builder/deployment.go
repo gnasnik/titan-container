@@ -42,6 +42,8 @@ func (b *deployment) Create() (*appsv1.Deployment, error) { // nolint:golint,unp
 				Spec: corev1.PodSpec{
 					Containers:       []corev1.Container{b.container()},
 					ImagePullSecrets: b.imagePullSecrets(),
+					NodeSelector:     map[string]string{titanNodeSelector: b.osType()},
+					Tolerations:      b.tolerations(),
 				},
 			},
 		},
@@ -57,6 +59,7 @@ func (b *deployment) Update(obj *appsv1.Deployment) (*appsv1.Deployment, error) 
 	obj.Spec.Template.Labels = b.labels()
 	obj.Spec.Template.Spec.Containers = []corev1.Container{b.container()}
 	obj.Spec.Template.Spec.ImagePullSecrets = b.imagePullSecrets()
+	obj.Spec.Template.Spec.NodeSelector = map[string]string{titanNodeSelector: b.osType()}
 
 	return obj, nil
 }

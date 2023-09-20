@@ -10,4 +10,5 @@ type Service struct {
 	Count     int32
 	Expose    []*ServiceExpose
 	Params    *ServiceParams
+	OSType    string
 }

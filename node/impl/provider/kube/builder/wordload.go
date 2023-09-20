@@ -59,6 +59,30 @@ func (b *Workload) replicas() *int32 {
 	return replicas
 }
 
+func (b *Workload) osType() string {
+	osType := b.deployment.ManifestGroup().Services[b.serviceIdx].OSType
+	if strings.ToLower(osType) == osTypeWindows {
+		return osTypeWindows
+	}
+
+	return osTypeLinux
+}
+
+func (b *Workload) tolerations() []corev1.Toleration {
+	if b.osType() != osTypeWindows {
+		return make([]corev1.Toleration, 0)
+	}
+
+	return []corev1.Toleration{
+		{
+			Key:      "os",
+			Operator: corev1.TolerationOpEqual,
+			Value:    osTypeWindows,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+}
+
 func (b *Workload) labels() map[string]string {
 	obj := b.builder.labels()
 	obj[TitanManifestServiceLabelName] = b.deployment.ManifestGroup().Services[b.serviceIdx].Name
