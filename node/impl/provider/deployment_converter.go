@@ -231,6 +231,11 @@ func k8sStatefulSetToService(statefulSet *appsv1.StatefulSet) (*types.Service, e
 	service.Memory = container.Resources.Limits.Memory().Value() / unitOfMemory
 
 	storage := int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / unitOfStorage
+
+	if len(statefulSet.Spec.VolumeClaimTemplates) > 0 {
+		storage += int64(statefulSet.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage().AsApproximateFloat64()) / unitOfStorage
+	}
+
 	service.Storage = types.Storage{Quantity: storage, Persistent: true}
 
 	status := types.ReplicasStatus{

@@ -87,13 +87,9 @@ func (m *manager) CreateDeployment(ctx context.Context, deployment *types.Deploy
 	did := cDeployment.DeploymentID()
 	ns := builder.DidNS(did)
 
-	deploymentList, err := m.kc.ListDeployments(context.Background(), ns)
-	if err != nil {
-		log.Errorf("ListDeployments %s", err.Error())
+	if isExist, err := m.isDeploymentExist(ctx, ns); err != nil {
 		return err
-	}
-
-	if deploymentList != nil && len(deploymentList.Items) > 0 {
+	} else if isExist {
 		return fmt.Errorf("deployment %s already exist", deployment.ID)
 	}
 
@@ -115,12 +111,9 @@ func (m *manager) UpdateDeployment(ctx context.Context, deployment *types.Deploy
 	did := k8sDeployment.DeploymentID()
 	ns := builder.DidNS(did)
 
-	deploymentList, err := m.kc.ListDeployments(context.Background(), ns)
-	if err != nil {
+	if isExist, err := m.isDeploymentExist(ctx, ns); err != nil {
 		return err
-	}
-
-	if deploymentList == nil || len(deploymentList.Items) == 0 {
+	} else if !isExist {
 		return fmt.Errorf("deployment %s do not exist", deployment.ID)
 	}
 
@@ -317,4 +310,25 @@ func (m *manager) getServices(ctx context.Context, ns string) ([]*types.Service,
 		return nil, err
 	}
 	return k8sStatefulSetsToServices(statefulSets)
+}
+
+func (m *manager) isDeploymentExist(ctx context.Context, ns string) (bool, error) {
+	deploymentList, err := m.kc.ListDeployments(ctx, ns)
+	if err != nil {
+		return false, err
+	}
+
+	if deploymentList != nil && len(deploymentList.Items) > 0 {
+		return true, nil
+	}
+
+	statefulSets, err := m.kc.ListStatefulSets(ctx, ns)
+	if err != nil {
+		return false, err
+	}
+	if statefulSets != nil && len(statefulSets.Items) > 0 {
+		return true, nil
+	}
+
+	return false, nil
 }

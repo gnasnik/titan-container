@@ -67,7 +67,7 @@ func (b *statefulSet) Update(obj *appsv1.StatefulSet) (*appsv1.StatefulSet, erro
 	obj.Spec.Template.Labels = b.labels()
 	obj.Spec.Template.Spec.Containers = []corev1.Container{b.container()}
 	obj.Spec.Template.Spec.ImagePullSecrets = b.imagePullSecrets()
-	obj.Spec.VolumeClaimTemplates = b.persistentVolumeClaims()
+	// obj.Spec.VolumeClaimTemplates = b.persistentVolumeClaims()
 	obj.Spec.Template.Spec.NodeSelector = map[string]string{titanNodeSelector: b.osType()}
 
 	return obj, nil
