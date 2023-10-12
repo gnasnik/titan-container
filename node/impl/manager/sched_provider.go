@@ -98,10 +98,9 @@ func (p *ProviderManager) watch() {
 		case <-heartbeatTimer.C:
 		}
 
-		sctx, scancel := context.WithTimeout(ctx, HeartbeatInterval/2)
-
 		p.lk.Lock()
 		for id, provider := range p.providers {
+			sctx, scancel := context.WithTimeout(ctx, HeartbeatInterval/2)
 			_, err := provider.Session(sctx)
 			scancel()
 			if err != nil {
