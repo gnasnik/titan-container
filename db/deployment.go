@@ -41,7 +41,9 @@ func addNewDeployment(ctx context.Context, tx *sqlx.Tx, deployment *types.Deploy
 
 func addNewServices(ctx context.Context, tx *sqlx.Tx, services []*types.Service) error {
 	qry := `INSERT INTO services (id, name, image, ports, cpu, gpu, memory, storage, deployment_id, env, arguments, error_message, created_at, updated_at) 
-		        VALUES (:id,:name, :image, :ports, :cpu, :gpu, :memory, :storage, :deployment_id, :env, :arguments, :error_message, :created_at, :updated_at)`
+		        VALUES (:id,:name, :image, :ports, :cpu, :gpu, :memory, :storage, :deployment_id, :env, :arguments, :error_message, :created_at, :updated_at) 
+		        ON DUPLICATE KEY UPDATE image=VALUES(image), ports=VALUES(ports), cpu=VALUES(cpu), gpu=VALUES(gpu), memory=VALUES(memory), storage=VALUES(storage),
+		        env=VALUES(env), arguments=VALUES(arguments), error_message=VALUES(error_message)`
 	_, err := tx.NamedExecContext(ctx, qry, services)
 
 	return err
@@ -120,6 +122,16 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 	}
 
 	return out, nil
+}
+
+func (m *ManagerDB) GetDeploymentById(ctx context.Context, id types.DeploymentID) (*types.Deployment, error) {
+	out, err := m.GetDeployments(ctx, &types.GetDeploymentOption{
+		DeploymentID: id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out[0], nil
 }
 
 func (m *ManagerDB) UpdateDeploymentState(ctx context.Context, id types.DeploymentID, state types.DeploymentState) error {

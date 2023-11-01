@@ -20,4 +20,7 @@ type Manager interface {
 	GetLogs(ctx context.Context, deployment *types.Deployment) ([]*types.ServiceLog, error)             //perm:read
 	GetEvents(ctx context.Context, deployment *types.Deployment) ([]*types.ServiceEvent, error)         //perm:read
 	SetProperties(ctx context.Context, properties *types.Properties) error                              //perm:admin
+	GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) //perm:read
+	AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error              //perm:admin
+	DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error               //perm:admin
 }

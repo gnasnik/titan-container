@@ -45,9 +45,15 @@ type ManagerStruct struct {
 	CommonStruct
 
 	Internal struct {
+		AddDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 string) error `perm:"admin"`
+
 		CloseDeployment func(p0 context.Context, p1 *types.Deployment, p2 bool) error `perm:"admin"`
 
 		CreateDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
+
+		DeleteDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 int64) error `perm:"admin"`
+
+		GetDeploymentDomains func(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) `perm:"read"`
 
 		GetDeploymentList func(p0 context.Context, p1 *types.GetDeploymentOption) ([]*types.Deployment, error) `perm:"read"`
 
@@ -73,11 +79,17 @@ type ManagerStub struct {
 
 type ProviderStruct struct {
 	Internal struct {
+		AddDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 string) error `perm:"admin"`
+
 		CloseDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
 
 		CreateDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
 
+		DeleteDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 int64) error `perm:"admin"`
+
 		GetDeployment func(p0 context.Context, p1 types.DeploymentID) (*types.Deployment, error) `perm:"read"`
+
+		GetDeploymentDomains func(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) `perm:"read"`
 
 		GetEvents func(p0 context.Context, p1 types.DeploymentID) ([]*types.ServiceEvent, error) `perm:"read"`
 
@@ -206,6 +218,17 @@ func (s *CommonStub) Version(p0 context.Context) (APIVersion, error) {
 	return *new(APIVersion), ErrNotSupported
 }
 
+func (s *ManagerStruct) AddDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
+	if s.Internal.AddDeploymentDomain == nil {
+		return ErrNotSupported
+	}
+	return s.Internal.AddDeploymentDomain(p0, p1, p2)
+}
+
+func (s *ManagerStub) AddDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
+	return ErrNotSupported
+}
+
 func (s *ManagerStruct) CloseDeployment(p0 context.Context, p1 *types.Deployment, p2 bool) error {
 	if s.Internal.CloseDeployment == nil {
 		return ErrNotSupported
@@ -226,6 +249,28 @@ func (s *ManagerStruct) CreateDeployment(p0 context.Context, p1 *types.Deploymen
 
 func (s *ManagerStub) CreateDeployment(p0 context.Context, p1 *types.Deployment) error {
 	return ErrNotSupported
+}
+
+func (s *ManagerStruct) DeleteDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
+	if s.Internal.DeleteDeploymentDomain == nil {
+		return ErrNotSupported
+	}
+	return s.Internal.DeleteDeploymentDomain(p0, p1, p2)
+}
+
+func (s *ManagerStub) DeleteDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
+	return ErrNotSupported
+}
+
+func (s *ManagerStruct) GetDeploymentDomains(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) {
+	if s.Internal.GetDeploymentDomains == nil {
+		return *new([]*types.DeploymentDomain), ErrNotSupported
+	}
+	return s.Internal.GetDeploymentDomains(p0, p1)
+}
+
+func (s *ManagerStub) GetDeploymentDomains(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) {
+	return *new([]*types.DeploymentDomain), ErrNotSupported
 }
 
 func (s *ManagerStruct) GetDeploymentList(p0 context.Context, p1 *types.GetDeploymentOption) ([]*types.Deployment, error) {
@@ -316,6 +361,17 @@ func (s *ManagerStub) UpdateDeployment(p0 context.Context, p1 *types.Deployment)
 	return ErrNotSupported
 }
 
+func (s *ProviderStruct) AddDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
+	if s.Internal.AddDeploymentDomain == nil {
+		return ErrNotSupported
+	}
+	return s.Internal.AddDeploymentDomain(p0, p1, p2)
+}
+
+func (s *ProviderStub) AddDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
+	return ErrNotSupported
+}
+
 func (s *ProviderStruct) CloseDeployment(p0 context.Context, p1 *types.Deployment) error {
 	if s.Internal.CloseDeployment == nil {
 		return ErrNotSupported
@@ -338,6 +394,17 @@ func (s *ProviderStub) CreateDeployment(p0 context.Context, p1 *types.Deployment
 	return ErrNotSupported
 }
 
+func (s *ProviderStruct) DeleteDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
+	if s.Internal.DeleteDeploymentDomain == nil {
+		return ErrNotSupported
+	}
+	return s.Internal.DeleteDeploymentDomain(p0, p1, p2)
+}
+
+func (s *ProviderStub) DeleteDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
+	return ErrNotSupported
+}
+
 func (s *ProviderStruct) GetDeployment(p0 context.Context, p1 types.DeploymentID) (*types.Deployment, error) {
 	if s.Internal.GetDeployment == nil {
 		return nil, ErrNotSupported
@@ -347,6 +414,17 @@ func (s *ProviderStruct) GetDeployment(p0 context.Context, p1 types.DeploymentID
 
 func (s *ProviderStub) GetDeployment(p0 context.Context, p1 types.DeploymentID) (*types.Deployment, error) {
 	return nil, ErrNotSupported
+}
+
+func (s *ProviderStruct) GetDeploymentDomains(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) {
+	if s.Internal.GetDeploymentDomains == nil {
+		return *new([]*types.DeploymentDomain), ErrNotSupported
+	}
+	return s.Internal.GetDeploymentDomains(p0, p1)
+}
+
+func (s *ProviderStub) GetDeploymentDomains(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) {
+	return *new([]*types.DeploymentDomain), ErrNotSupported
 }
 
 func (s *ProviderStruct) GetEvents(p0 context.Context, p1 types.DeploymentID) ([]*types.ServiceEvent, error) {

@@ -44,7 +44,7 @@ func (m *Manager) ProviderConnect(ctx context.Context, url string, provider *typ
 	remoteAddr := handler.GetRemoteAddr(ctx)
 
 	_, err := m.ProviderManager.Get(provider.ID)
-	if err != ErrProviderNotExist {
+	if !errors.Is(err, ErrProviderNotExist) {
 		return nil
 	}
 
@@ -137,9 +137,24 @@ func (m *Manager) CreateDeployment(ctx context.Context, deployment *types.Deploy
 }
 
 func (m *Manager) UpdateDeployment(ctx context.Context, deployment *types.Deployment) error {
+	deploy, err := m.DB.GetDeploymentById(ctx, deployment.ID)
+	if err != nil {
+		return err
+	}
+
+	deployment.ProviderID = deploy.ProviderID
 	providerApi, err := m.ProviderManager.Get(deployment.ProviderID)
 	if err != nil {
 		return err
+	}
+
+	for _, service := range deployment.Services {
+		if service.Name == "" {
+			service.Name = deployment.Name
+		}
+		service.DeploymentID = deployment.ID
+		service.CreatedAt = time.Now()
+		service.UpdatedAt = time.Now()
 	}
 
 	err = providerApi.UpdateDeployment(ctx, deployment)
@@ -204,6 +219,48 @@ func (m *Manager) SetProperties(ctx context.Context, properties *types.Propertie
 	properties.CreatedAt = time.Now()
 	properties.UpdatedAt = time.Now()
 	return m.DB.AddProperties(ctx, properties)
+}
+
+func (m *Manager) GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
+	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	providerApi, err := m.ProviderManager.Get(deploy.ProviderID)
+	if err != nil {
+		return nil, err
+	}
+
+	return providerApi.GetDeploymentDomains(ctx, deploy.ID)
+}
+
+func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
+	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	providerApi, err := m.ProviderManager.Get(deploy.ProviderID)
+	if err != nil {
+		return err
+	}
+
+	return providerApi.AddDeploymentDomain(ctx, deploy.ID, hostname)
+}
+
+func (m *Manager) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
+	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	providerApi, err := m.ProviderManager.Get(deploy.ProviderID)
+	if err != nil {
+		return err
+	}
+
+	return providerApi.DeleteDeploymentDomain(ctx, deploy.ID, index)
 }
 
 var _ api.Manager = &Manager{}

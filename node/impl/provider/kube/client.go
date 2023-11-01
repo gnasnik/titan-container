@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	netv1 "k8s.io/api/networking/v1"
 	"os"
 
 	"github.com/Filecoin-Titan/titan-container/node/config"
@@ -31,6 +32,8 @@ type Client interface {
 	ListPods(ctx context.Context, ns string, opts metav1.ListOptions) (*corev1.PodList, error)
 	PodLogs(ctx context.Context, ns string, podName string) (io.ReadCloser, error)
 	Events(ctx context.Context, ns string, opts metav1.ListOptions) (*corev1.EventList, error)
+	GetIngress(ctx context.Context, ns string, hostname string) (*netv1.Ingress, error)
+	UpdateIngress(ctx context.Context, ns string, ingress *netv1.Ingress) (*netv1.Ingress, error)
 }
 
 type client struct {
@@ -204,4 +207,13 @@ func (c *client) PodLogs(ctx context.Context, ns string, podName string) (io.Rea
 
 func (c *client) Events(ctx context.Context, ns string, opts metav1.ListOptions) (*corev1.EventList, error) {
 	return c.kc.CoreV1().Events(ns).List(ctx, opts)
+}
+
+func (c *client) GetIngress(ctx context.Context, ns string, hostname string) (*netv1.Ingress, error) {
+	ingressName := builder.NewHostName(ns, hostname)
+	return c.kc.NetworkingV1().Ingresses(ns).Get(ctx, ingressName, metav1.GetOptions{})
+}
+
+func (c *client) UpdateIngress(ctx context.Context, ns string, ingress *netv1.Ingress) (*netv1.Ingress, error) {
+	return c.kc.NetworkingV1().Ingresses(ns).Update(ctx, ingress, metav1.UpdateOptions{})
 }

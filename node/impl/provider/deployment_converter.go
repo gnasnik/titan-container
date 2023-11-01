@@ -196,6 +196,14 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 	storage := int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / unitOfStorage
 	service.Storage = types.Storage{Quantity: storage}
 
+	for _, containerPort := range container.Ports {
+		service.Ports = append(service.Ports, types.Port{
+			Protocol:   types.Protocol(containerPort.Protocol),
+			Port:       int(containerPort.ContainerPort),
+			ExposePort: int(containerPort.HostPort),
+		})
+	}
+
 	status := types.ReplicasStatus{
 		TotalReplicas:     int(deployment.Status.Replicas),
 		ReadyReplicas:     int(deployment.Status.ReadyReplicas),
@@ -235,8 +243,15 @@ func k8sStatefulSetToService(statefulSet *appsv1.StatefulSet) (*types.Service, e
 	if len(statefulSet.Spec.VolumeClaimTemplates) > 0 {
 		storage += int64(statefulSet.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage().AsApproximateFloat64()) / unitOfStorage
 	}
-
 	service.Storage = types.Storage{Quantity: storage, Persistent: true}
+
+	for _, containerPort := range container.Ports {
+		service.Ports = append(service.Ports, types.Port{
+			Protocol:   types.Protocol(containerPort.Protocol),
+			Port:       int(containerPort.ContainerPort),
+			ExposePort: int(containerPort.HostPort),
+		})
+	}
 
 	status := types.ReplicasStatus{
 		TotalReplicas:     int(statefulSet.Status.Replicas),

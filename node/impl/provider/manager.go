@@ -3,7 +3,9 @@ package provider
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	netv1 "k8s.io/api/networking/v1"
 
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	"github.com/Filecoin-Titan/titan-container/node/config"
@@ -24,6 +26,9 @@ type Manager interface {
 	GetDeployment(ctx context.Context, id types.DeploymentID) (*types.Deployment, error)
 	GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.ServiceLog, error)
 	GetEvents(ctx context.Context, id types.DeploymentID) ([]*types.ServiceEvent, error)
+	GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)
+	AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error
+	DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error
 }
 
 type manager struct {
@@ -331,4 +336,67 @@ func (m *manager) isDeploymentExist(ctx context.Context, ns string) (bool, error
 	}
 
 	return false, nil
+}
+
+func (m *manager) GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
+	deploymentID := manifest.DeploymentID{ID: string(id)}
+	ns := builder.DidNS(deploymentID)
+
+	var out []*types.DeploymentDomain
+	ingress, err := m.kc.GetIngress(ctx, ns, m.providerCfg.HostName)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, rule := range ingress.Spec.Rules {
+		out = append(out, &types.DeploymentDomain{
+			Host: rule.Host,
+		})
+	}
+
+	return out, nil
+}
+
+func (m *manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
+	deploymentID := manifest.DeploymentID{ID: string(id)}
+	ns := builder.DidNS(deploymentID)
+
+	ingress, err := m.kc.GetIngress(ctx, ns, m.providerCfg.HostName)
+	if err != nil {
+		return err
+	}
+
+	newRule := netv1.IngressRule{
+		Host: hostname,
+	}
+
+	if len(ingress.Spec.Rules) == 0 {
+		return errors.New("please config hostname and expose port first")
+	}
+
+	newRule.IngressRuleValue = ingress.Spec.Rules[0].IngressRuleValue
+	ingress.Spec.Rules = append(ingress.Spec.Rules, newRule)
+
+	_, err = m.kc.UpdateIngress(ctx, ns, ingress)
+	return nil
+}
+
+func (m *manager) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
+	deploymentID := manifest.DeploymentID{ID: string(id)}
+	ns := builder.DidNS(deploymentID)
+
+	ingress, err := m.kc.GetIngress(ctx, ns, m.providerCfg.HostName)
+	if err != nil {
+		return err
+	}
+
+	if len(ingress.Spec.Rules) == 0 || len(ingress.Spec.Rules) < int(index) {
+		return nil
+	}
+
+	newRules := append(ingress.Spec.Rules[:index-1], ingress.Spec.Rules[index:]...)
+	ingress.Spec.Rules = newRules
+
+	_, err = m.kc.UpdateIngress(ctx, ns, ingress)
+	return nil
 }

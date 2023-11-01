@@ -54,3 +54,15 @@ func (p *Provider) GetLogs(ctx context.Context, id types.DeploymentID) ([]*types
 func (p *Provider) GetEvents(ctx context.Context, id types.DeploymentID) ([]*types.ServiceEvent, error) {
 	return p.Manager.GetEvents(ctx, id)
 }
+
+func (p *Provider) GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
+	return p.Manager.GetDeploymentDomains(ctx, id)
+}
+
+func (p *Provider) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
+	return p.Manager.AddDeploymentDomain(ctx, id, hostname)
+}
+
+func (p *Provider) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
+	return p.Manager.DeleteDeploymentDomain(ctx, id, index)
+}

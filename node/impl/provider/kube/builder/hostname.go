@@ -23,7 +23,7 @@ type HostnameDirective struct {
 func BuildHostNameDirective(ns, hostName, serviceName, ingressName string, serviceExpose *manifest.ServiceExpose) *HostnameDirective {
 	// Build the directive based off the event
 	directive := &HostnameDirective{
-		Hostname:    newHostName(ns, hostName),
+		Hostname:    NewHostName(ns, hostName),
 		ServiceName: serviceName,
 		ServicePort: int32(serviceExpose.ExternalPort),
 		IngressName: ingressName,
@@ -52,7 +52,7 @@ func BuildHostNameDirective(ns, hostName, serviceName, ingressName string, servi
 	return directive
 }
 
-func newHostName(ns string, hostName string) string {
+func NewHostName(ns string, hostName string) string {
 	hostNamePrefix := strings.Replace(ns, "-", "", -1)
 	return fmt.Sprintf("%s.%s", hostNamePrefix, hostName)
 }
