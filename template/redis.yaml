@@ -1,5 +1,4 @@
 Name: redis
-ProviderID: ""
 Services:
   - Image: redis
     CPU: 0.1

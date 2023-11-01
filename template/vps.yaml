@@ -1,5 +1,4 @@
 Name: vps
-ProviderID: "8f3d8467-5733-452e-9d50-785a39db9dbc"
 Authority: true
 Services:
   - Image: xiaomumu001/vps:latest

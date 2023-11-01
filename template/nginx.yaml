@@ -1,5 +1,4 @@
 Name: nginx
-ProviderID: "8f3d8467-5733-452e-9d50-785a39db9dbc"
 Services:
   - Image: nginx:1.24.0
     CPU: 0.1
@@ -8,5 +7,4 @@ Services:
       Quantity: 500
     Ports:
       - Port: 80
-
 

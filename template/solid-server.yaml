@@ -1,5 +1,4 @@
 Name: solid-server
-ProviderID: "c4889373-df16-4241-b74a-f6b6f3746e52"
 Authority: true
 Services:
   - Image: solidproject/community-server:latest
