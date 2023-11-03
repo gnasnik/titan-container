@@ -49,6 +49,10 @@ func (b *ingress) Create() (*netv1.Ingress, error) {
 		obj.Spec.IngressClassName = &ingressClassName
 	}
 
+	if directive.UseCaddyIngress {
+		obj.ObjectMeta.Annotations = cadyyIngressAnnotations(directive)
+	}
+
 	return obj, nil
 }
 
@@ -63,6 +67,16 @@ func (b *ingress) Update(obj *netv1.Ingress) (*netv1.Ingress, error) {
 
 func (b *ingress) Name() string {
 	return b.directive.Hostname
+}
+
+func cadyyIngressAnnotations(directive *HostnameDirective) map[string]string {
+	const root = "nginx.ingress.kubernetes.io"
+
+	result := kubeNginxIngressAnnotations(directive)
+	result[fmt.Sprintf("%s/enable-cors", root)] = "true"
+	result["kubernetes.io/ingress.class"] = "caddy"
+
+	return result
 }
 
 func kubeNginxIngressAnnotations(directive *HostnameDirective) map[string]string {

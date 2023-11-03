@@ -8,25 +8,27 @@ import (
 )
 
 type HostnameDirective struct {
-	IngressName string
-	Hostname    string
-	ServiceName string
-	ServicePort int32
-	ReadTimeout uint32
-	SendTimeout uint32
-	NextTimeout uint32
-	MaxBodySize uint32
-	NextTries   uint32
-	NextCases   []string
+	IngressName     string
+	Hostname        string
+	ServiceName     string
+	ServicePort     int32
+	ReadTimeout     uint32
+	SendTimeout     uint32
+	NextTimeout     uint32
+	MaxBodySize     uint32
+	NextTries       uint32
+	NextCases       []string
+	UseCaddyIngress bool
 }
 
-func BuildHostNameDirective(ns, hostName, serviceName, ingressName string, serviceExpose *manifest.ServiceExpose) *HostnameDirective {
+func BuildHostNameDirective(ns, hostName, serviceName, ingressName string, serviceExpose *manifest.ServiceExpose, useCaddyIngress bool) *HostnameDirective {
 	// Build the directive based off the event
 	directive := &HostnameDirective{
-		Hostname:    NewHostName(ns, hostName),
-		ServiceName: serviceName,
-		ServicePort: int32(serviceExpose.ExternalPort),
-		IngressName: ingressName,
+		Hostname:        NewHostName(ns, hostName),
+		ServiceName:     serviceName,
+		ServicePort:     int32(serviceExpose.ExternalPort),
+		IngressName:     ingressName,
+		UseCaddyIngress: useCaddyIngress,
 	}
 	/*
 		Populate the configuration options

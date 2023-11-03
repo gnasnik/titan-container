@@ -163,7 +163,7 @@ func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployme
 		if len(c.providerConfig.HostName) > 0 {
 			for _, expose := range service.Expose {
 				if builder.ShouldBeIngress(expose) {
-					hostDirective := builder.BuildHostNameDirective(ns.Name(), c.providerConfig.HostName, service.Name, c.providerConfig.IngressClassName, expose)
+					hostDirective := builder.BuildHostNameDirective(ns.Name(), c.providerConfig.HostName, service.Name, c.providerConfig.IngressClassName, expose, c.providerConfig.UseCaddyIngress)
 					if err := applyIngress(ctx, c.kc, builder.BuildIngress(workload, hostDirective)); err != nil {
 						c.log.Errorf("applying ingress error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
 						return err
