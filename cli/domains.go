@@ -41,18 +41,21 @@ var GetDeploymentDomainsCmd = &cli.Command{
 		}
 
 		domains, err := api.GetDeploymentDomains(ctx, deploymentID)
+		if err != nil {
+			return err
+		}
 
 		tw := tablewriter.New(
 			tablewriter.Col("ID"),
 			tablewriter.Col("Hostname"),
-			tablewriter.Col("Status"),
+			tablewriter.Col("State"),
 		)
 
 		for index, domain := range domains {
 			m := map[string]interface{}{
 				"ID":       index + 1,
 				"Hostname": domain.Host,
-				"State":    "OK",
+				"State":    domain.State,
 			}
 			tw.Write(m)
 		}

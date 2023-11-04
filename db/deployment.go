@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -131,6 +132,11 @@ func (m *ManagerDB) GetDeploymentById(ctx context.Context, id types.DeploymentID
 	if err != nil {
 		return nil, err
 	}
+
+	if len(out) == 0 {
+		return nil, sql.ErrNoRows
+	}
+
 	return out[0], nil
 }
 

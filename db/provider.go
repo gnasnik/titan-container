@@ -30,6 +30,15 @@ func (m *ManagerDB) AddNewProvider(ctx context.Context, provider *types.Provider
 	return err
 }
 
+func (m *ManagerDB) GetProviderById(ctx context.Context, id types.ProviderID) (*types.Provider, error) {
+	qry := `SELECT * FROM providers where id = ?`
+	var out types.Provider
+	if err := m.db.GetContext(ctx, &out, qry, id); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (m *ManagerDB) GetAllProviders(ctx context.Context, option *types.GetProviderOption) ([]*types.Provider, error) {
 	qry := `SELECT * from providers`
 	var condition []string

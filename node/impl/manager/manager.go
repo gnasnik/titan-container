@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"net"
 	"strings"
 	"time"
 
@@ -221,6 +222,11 @@ func (m *Manager) SetProperties(ctx context.Context, properties *types.Propertie
 	return m.DB.AddProperties(ctx, properties)
 }
 
+const (
+	StateInvalid = "Invalid"
+	StateOk      = "OK"
+)
+
 func (m *Manager) GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
 	if err != nil {
@@ -232,7 +238,40 @@ func (m *Manager) GetDeploymentDomains(ctx context.Context, id types.DeploymentI
 		return nil, err
 	}
 
-	return providerApi.GetDeploymentDomains(ctx, deploy.ID)
+	provider, err := m.DB.GetProviderById(ctx, deploy.ProviderID)
+	if err != nil {
+		return nil, err
+	}
+
+	domains, err := providerApi.GetDeploymentDomains(ctx, deploy.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, domain := range domains {
+		if includeIP(domain.Host, provider.HostURI) {
+			domain.State = StateOk
+		} else {
+			domain.State = StateInvalid
+		}
+	}
+
+	return domains, nil
+}
+
+func includeIP(hostname string, expectedIP string) bool {
+	ips, err := net.LookupHost(hostname)
+	if err != nil {
+		return false
+	}
+
+	for _, ip := range ips {
+		if ip == expectedIP {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {

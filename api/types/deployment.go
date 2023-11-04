@@ -216,5 +216,6 @@ type Properties struct {
 }
 
 type DeploymentDomain struct {
-	Host string
+	Host  string
+	State string
 }
