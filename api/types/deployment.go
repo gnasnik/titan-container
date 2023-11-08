@@ -219,3 +219,12 @@ type DeploymentDomain struct {
 	Host  string
 	State string
 }
+
+const (
+	ShellCodeStdout         = 100
+	ShellCodeStderr         = 101
+	ShellCodeResult         = 102
+	ShellCodeFailure        = 103
+	ShellCodeStdin          = 104
+	ShellCodeTerminalResize = 105
+)

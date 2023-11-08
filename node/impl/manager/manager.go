@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -300,6 +301,22 @@ func (m *Manager) DeleteDeploymentDomain(ctx context.Context, id types.Deploymen
 	}
 
 	return providerApi.DeleteDeploymentDomain(ctx, deploy.ID, index)
+}
+
+func (m *Manager) GetDeploymentExecWsURL(ctx context.Context, id types.DeploymentID) (string, error) {
+	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if err != nil {
+		return "", err
+	}
+
+	provider, err := m.DB.GetProviderById(ctx, deploy.ProviderID)
+	if err != nil {
+		return "", err
+	}
+
+	websocketUrl := fmt.Sprintf("ws://%s:7123/deployment/exec/%s", provider.HostURI, deploy.ID)
+
+	return websocketUrl, nil
 }
 
 var _ api.Manager = &Manager{}

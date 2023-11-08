@@ -21,13 +21,6 @@ const (
 	titanNodeSelector = "kubernetes.io/os"
 	osTypeLinux       = "linux"
 	osTypeWindows     = "windows"
-
-// AkashLeaseOwnerLabelName      = "akash.network/lease.id.owner"
-// AkashLeaseDSeqLabelName       = "akash.network/lease.id.dseq"
-// AkashLeaseGSeqLabelName       = "akash.network/lease.id.gseq"
-// AkashLeaseOSeqLabelName       = "akash.network/lease.id.oseq"
-// AkashLeaseProviderLabelName   = "akash.network/lease.id.provider"
-// AkashLeaseManifestVersion     = "akash.network/manifest.version"
 )
 
 var (

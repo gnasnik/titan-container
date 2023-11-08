@@ -36,6 +36,8 @@ const (
 
 	CheckFDLimit
 
+	ConfigWsHandler
+
 	_nInvokes // keep this last
 )
 

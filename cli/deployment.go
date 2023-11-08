@@ -4,16 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strings"
-
 	"github.com/Filecoin-Titan/titan-container/api"
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	"github.com/Filecoin-Titan/titan-container/lib/tablewriter"
 	"github.com/docker/go-units"
+	dockerterm "github.com/moby/term"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"io"
+	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/kubectl/pkg/util/term"
+	"os"
+	"os/signal"
 	"sigs.k8s.io/yaml"
+	"strings"
+	"sync"
+	"syscall"
 )
 
 var defaultDateTimeLayout = "2006-01-02 15:04:05"
@@ -27,6 +33,7 @@ var deploymentCmds = &cli.Command{
 		DeleteDeployment,
 		StatusDeployment,
 		UpdateDeployment,
+		ExecuteCmd,
 		deploymentDomainCmds,
 	},
 }
@@ -433,5 +440,116 @@ var UpdateDeployment = &cli.Command{
 
 		deployment.ID = deploymentID
 		return api.UpdateDeployment(ctx, &deployment)
+	},
+}
+
+var ExecuteCmd = &cli.Command{
+	Name:  "exec",
+	Usage: "deployment executor",
+	Flags: []cli.Flag{},
+	Action: func(cctx *cli.Context) error {
+		api, closer, err := GetManagerAPI(cctx)
+		if err != nil {
+			return err
+		}
+		defer closer()
+
+		ctx := ReqContext(cctx)
+		deploymentID := types.DeploymentID(cctx.Args().First())
+		if deploymentID == "" {
+			return errors.Errorf("deploymentID empty")
+		}
+
+		url, err := api.GetDeploymentExecWsURL(ctx, deploymentID)
+		if err != nil {
+			return err
+		}
+
+		var stdin io.ReadCloser
+		var stdout io.Writer
+		var stderr io.Writer
+		stdout = os.Stdout
+		stderr = os.Stderr
+		stdin = os.Stdin
+
+		var tty term.TTY
+		var tsq remotecommand.TerminalSizeQueue
+
+		tty = term.TTY{
+			Parent: nil,
+			Out:    os.Stdout,
+			In:     stdin,
+		}
+
+		if !tty.IsTerminalIn() {
+			return errors.Errorf("errTerminalNotATty: %v", err)
+		}
+
+		dockerStdin, dockerStdout, _ := dockerterm.StdStreams()
+		tty.In = dockerStdin
+		tty.Out = dockerStdout
+
+		stdin = dockerStdin
+		stdout = dockerStdout
+		tsq = tty.MonitorSize(tty.GetSize())
+		tty.Raw = true
+
+		var terminalResizes chan remotecommand.TerminalSize
+		wg := &sync.WaitGroup{}
+		ctx, cancel := context.WithCancel(cctx.Context)
+
+		if tsq != nil {
+			terminalResizes = make(chan remotecommand.TerminalSize, 1)
+			go func() {
+				for {
+					// this blocks waiting for a resize event, the docs suggest
+					// that this isn't the case but there is not a code path that ever does that
+					// so this goroutine is just left running until the process exits
+					size := tsq.Next()
+					if size == nil {
+						return
+					}
+					terminalResizes <- *size
+
+				}
+			}()
+		}
+
+		signals := make(chan os.Signal, 1)
+		signalsToCatch := []os.Signal{syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP}
+
+		signal.Notify(signals, signalsToCatch...)
+		wasHalted := make(chan os.Signal, 1)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case sig := <-signals:
+				cancel()
+				wasHalted <- sig
+			case <-ctx.Done():
+			}
+		}()
+		shellFn := func() error {
+			return terminal(ctx, url, stdin, stdout, stderr, true, terminalResizes)
+		}
+
+		err = tty.Safe(shellFn)
+
+		// Check if a signal halted things
+		select {
+		case haltSignal := <-wasHalted:
+			fmt.Println(fmt.Sprintf("\nhalted by signal: %v\n", haltSignal))
+			err = nil // Don't show this error, as it is always something complaining about use of a closed connection
+		default:
+			cancel()
+		}
+		wg.Wait()
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "provider error messsage:\n%v\n", err.Error())
+		}
+
+		return nil
 	},
 }

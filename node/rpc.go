@@ -83,7 +83,7 @@ func ManagerHandler(a api.Manager, permissioned bool, opts ...jsonrpc.ServerOpti
 }
 
 // ProviderHandler returns handler, to be mounted as-is on the server.
-func ProviderHandler(authv func(ctx context.Context, token string) ([]auth.Permission, error), a api.Provider, permissioned bool) http.Handler {
+func ProviderHandler(authv func(ctx context.Context, token string) ([]auth.Permission, error), a api.Provider, h WebsocketHandler, permissioned bool) http.Handler {
 	mux := mux.NewRouter()
 	readerHandler, readerServerOpt := rpcenc.ReaderParamDecoder()
 	rpcServer := jsonrpc.NewServer(jsonrpc.WithServerErrors(api.RPCErrors), readerServerOpt)
@@ -98,6 +98,7 @@ func ProviderHandler(authv func(ctx context.Context, token string) ([]auth.Permi
 
 	mux.Handle("/rpc/v0", rpcServer)
 	mux.Handle("/rpc/streams/v0/push/{uuid}", readerHandler)
+	mux.Handle("/deployment/exec/{id}", h.DeploymentExecHandler())
 	mux.PathPrefix("/").Handler(http.DefaultServeMux) // pprof
 
 	if !permissioned {

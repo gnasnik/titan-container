@@ -3,8 +3,12 @@ package kube
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	netv1 "k8s.io/api/networking/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/remotecommand"
 	"os"
 
 	"github.com/Filecoin-Titan/titan-container/node/config"
@@ -34,6 +38,8 @@ type Client interface {
 	Events(ctx context.Context, ns string, opts metav1.ListOptions) (*corev1.EventList, error)
 	GetIngress(ctx context.Context, ns string, hostname string) (*netv1.Ingress, error)
 	UpdateIngress(ctx context.Context, ns string, ingress *netv1.Ingress) (*netv1.Ingress, error)
+	DeploymentCmdExec(ctx context.Context, cfgPath, ns, name string, stdin io.Reader, stdout, stderr io.Writer, tty bool,
+		terminalSizeQueue remotecommand.TerminalSizeQueue) error
 }
 
 type client struct {
@@ -216,4 +222,51 @@ func (c *client) GetIngress(ctx context.Context, ns string, hostname string) (*n
 
 func (c *client) UpdateIngress(ctx context.Context, ns string, ingress *netv1.Ingress) (*netv1.Ingress, error) {
 	return c.kc.NetworkingV1().Ingresses(ns).Update(ctx, ingress, metav1.UpdateOptions{})
+}
+
+func (c *client) DeploymentCmdExec(ctx context.Context, cfgPath, ns, name string, stdin io.Reader, stdout, stderr io.Writer, tty bool,
+	terminalSizeQueue remotecommand.TerminalSizeQueue) error {
+	pod, err := c.kc.CoreV1().Pods(ns).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	restCfg, err := openKubeConfig(cfgPath)
+	if err != nil {
+		return err
+	}
+
+	request := c.kc.CoreV1().RESTClient().Post().Resource("pods").Name(name).Namespace(ns).SubResource("exec").VersionedParams(
+		&corev1.PodExecOptions{
+			Command: []string{"sh"},
+			Stdin:   stdin != nil,
+			Stdout:  stdout != nil,
+			Stderr:  stderr != nil,
+			TTY:     tty,
+		}, scheme.ParameterCodec)
+
+	exec, err := remotecommand.NewSPDYExecutor(restCfg, "POST", request.URL())
+
+	if !terminal.IsTerminal(0) || !terminal.IsTerminal(1) {
+		return err
+	}
+
+	oldState, err := terminal.MakeRaw(0)
+	if err != nil {
+		return err
+	}
+	defer terminal.Restore(0, oldState)
+
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdin:             stdin,
+		Stdout:            stdout,
+		Stderr:            stderr,
+		Tty:               tty,
+		TerminalSizeQueue: terminalSizeQueue,
+	})
+	if err != nil {
+		return errors.Errorf("Failed executing: %v %s on %s", err, pod.Namespace, pod.Name)
+	}
+
+	return nil
 }

@@ -229,11 +229,13 @@ var runCmd = &cli.Command{
 		}
 
 		var providerAPI api.Provider
+		var wsHandler node.WebsocketHandler
 		stop, err := node.New(cctx.Context,
 			node.Provider(&providerAPI),
 			node.Base(),
 			node.Repo(r),
 			node.Override(new(api.Manager), managerAPI),
+			node.ConfigWebsocketHandler(&wsHandler),
 		)
 		if err != nil {
 			return xerrors.Errorf("creating node: %w", err)
@@ -248,7 +250,7 @@ var runCmd = &cli.Command{
 		}
 
 		srv := &http.Server{
-			Handler:           node.ProviderHandler(managerAPI.AuthVerify, providerAPI, true),
+			Handler:           node.ProviderHandler(managerAPI.AuthVerify, providerAPI, wsHandler, true),
 			ReadHeaderTimeout: timeout,
 			BaseContext: func(listener net.Listener) context.Context {
 				ctx, _ := tag.New(context.Background(), tag.Upsert(metrics.APIInterface, "provider"))

@@ -5,15 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	netv1 "k8s.io/api/networking/v1"
-
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	"github.com/Filecoin-Titan/titan-container/node/config"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/manifest"
 	logging "github.com/ipfs/go-log/v2"
+	"io"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 var log = logging.Logger("provider")
@@ -29,6 +30,7 @@ type Manager interface {
 	GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)
 	AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error
 	DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error
+	DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error
 }
 
 type manager struct {
@@ -399,4 +401,26 @@ func (m *manager) DeleteDeploymentDomain(ctx context.Context, id types.Deploymen
 
 	_, err = m.kc.UpdateIngress(ctx, ns, ingress)
 	return nil
+}
+
+func (m *manager) DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error {
+	deploymentID := manifest.DeploymentID{ID: string(id)}
+	ns := builder.DidNS(deploymentID)
+
+	pods, err := m.getPods(ctx, ns)
+	if err != nil {
+		return err
+	}
+
+	if len(pods) == 0 {
+		return errors.New("no pod found")
+	}
+
+	var name string
+	for k, _ := range pods {
+		name = k
+		break
+	}
+
+	return m.kc.DeploymentCmdExec(ctx, m.providerCfg.KubeConfigPath, ns, name, stdin, stdout, stderr, tty, terminalSizeQueue)
 }
