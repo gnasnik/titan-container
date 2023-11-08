@@ -25,7 +25,8 @@ type ProviderManager struct {
 
 type providerLife struct {
 	api.Provider
-	LastSeen time.Time
+	LastSeen   time.Time
+	remoteAddr string
 }
 
 func (p *providerLife) Update() {
@@ -48,7 +49,7 @@ func NewProviderScheduler() *ProviderManager {
 	return s
 }
 
-func (p *ProviderManager) AddProvider(id types.ProviderID, providerApi api.Provider) error {
+func (p *ProviderManager) AddProvider(id types.ProviderID, providerApi api.Provider, remoteAddr string) error {
 	p.lk.Lock()
 	p.lk.Unlock()
 
@@ -58,8 +59,9 @@ func (p *ProviderManager) AddProvider(id types.ProviderID, providerApi api.Provi
 	}
 
 	p.providers[id] = &providerLife{
-		Provider: providerApi,
-		LastSeen: time.Now(),
+		Provider:   providerApi,
+		LastSeen:   time.Now(),
+		remoteAddr: remoteAddr,
 	}
 	return nil
 }
@@ -75,6 +77,19 @@ func (p *ProviderManager) Get(id types.ProviderID) (api.Provider, error) {
 	}
 
 	return provider, nil
+}
+
+func (p *ProviderManager) GetRemoteAddr(id types.ProviderID) (string, error) {
+	p.lk.Lock()
+	defer p.lk.Unlock()
+
+	provider, exist := p.providers[id]
+	if !exist {
+		log.Infof("p.providers:%#v", p.providers)
+		return "", ErrProviderNotExist
+	}
+
+	return provider.remoteAddr, nil
 }
 
 func (p *ProviderManager) delProvider(id types.ProviderID) {

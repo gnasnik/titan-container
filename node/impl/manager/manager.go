@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net"
+	"net/url"
 	"strings"
 	"time"
 
@@ -58,7 +59,7 @@ func (m *Manager) ProviderConnect(ctx context.Context, url string, provider *typ
 
 	log.Infof("Connected to a remote provider at %s, provider id %s", remoteAddr, provider.ID)
 
-	err = m.ProviderManager.AddProvider(provider.ID, p)
+	err = m.ProviderManager.AddProvider(provider.ID, p, url)
 	if err != nil {
 		return err
 	}
@@ -314,12 +315,17 @@ func (m *Manager) GetDeploymentExecWsURL(ctx context.Context, id types.Deploymen
 		return "", err
 	}
 
-	provider, err := m.DB.GetProviderById(ctx, deploy.ProviderID)
+	remoteAddr, err := m.ProviderManager.GetRemoteAddr(deploy.ProviderID)
 	if err != nil {
 		return "", err
 	}
 
-	websocketUrl := fmt.Sprintf("ws://%s:7123/deployment/exec/%s", provider.HostURI, deploy.ID)
+	endpoint, err := url.Parse(remoteAddr)
+	if err != nil {
+		return "", err
+	}
+
+	websocketUrl := fmt.Sprintf("ws://%s/deployment/exec/%s", endpoint.Host, deploy.ID)
 
 	return websocketUrl, nil
 }
