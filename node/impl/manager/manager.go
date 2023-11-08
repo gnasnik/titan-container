@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net"
 	"strings"
@@ -140,6 +141,10 @@ func (m *Manager) CreateDeployment(ctx context.Context, deployment *types.Deploy
 
 func (m *Manager) UpdateDeployment(ctx context.Context, deployment *types.Deployment) error {
 	deploy, err := m.DB.GetDeploymentById(ctx, deployment.ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.New("deployment not found")
+	}
+
 	if err != nil {
 		return err
 	}

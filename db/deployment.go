@@ -86,6 +86,8 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 			states = append(states, strconv.Itoa(int(s)))
 		}
 		condition = append(condition, fmt.Sprintf(`d.state in (%s)`, strings.Join(states, ",")))
+	} else {
+		condition = append(condition, fmt.Sprintf(`d.state <> 3`))
 	}
 
 	if len(condition) > 0 {
