@@ -33,7 +33,6 @@ type ProviderCfg struct {
 	HostName         string
 	ExposeIP         string
 	IngressClassName string
-	UseCaddyIngress  bool
 
 	KubeConfigPath string
 }
