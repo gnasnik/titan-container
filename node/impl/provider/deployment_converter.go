@@ -79,7 +79,7 @@ func serviceToManifestService(service *types.Service, exposeIP string) (manifest
 		Resources: &resource,
 		Expose:    make([]*manifest.ServiceExpose, 0),
 		Count:     podReplicas,
-		Params:    storageToServiceParams(&service.ComputeResources.Storage),
+		Params:    storageToServiceParams(service.ComputeResources.Storage),
 		OSType:    string(service.OSType),
 	}
 
@@ -90,13 +90,15 @@ func serviceToManifestService(service *types.Service, exposeIP string) (manifest
 	return s, nil
 }
 
-func storageToServiceParams(storage *types.Storage) *manifest.ServiceParams {
-	if !storage.Persistent {
-		return nil
+func storageToServiceParams(storages []*types.Storage) *manifest.ServiceParams {
+	var out []manifest.StorageParams
+	for _, storage := range storages {
+		if !storage.Persistent {
+			continue
+		}
+		out = append(out, manifest.StorageParams{Name: storage.Name, Mount: storage.Mount})
 	}
-
-	param := manifest.StorageParams{Name: storage.Name, Mount: storage.Mount}
-	return &manifest.ServiceParams{Storage: []manifest.StorageParams{param}}
+	return &manifest.ServiceParams{Storage: out}
 }
 
 func envToManifestEnv(serviceEnv types.Env) []string {
@@ -120,8 +122,11 @@ func getServiceName(service *types.Service) string {
 }
 
 func resourceToManifestResource(resource *types.ComputeResources) manifest.ResourceUnits {
-	storage := manifest.NewStorage(resource.Storage.Name, uint64(resource.Storage.Quantity*unitOfStorage), resource.Storage.Persistent, resource.Storage.Mount)
-	return *manifest.NewResourceUnits(uint64(resource.CPU*unitOfCPU), uint64(resource.GPU), uint64(resource.Memory*unitOfMemory), storage)
+	var storages []*manifest.Storage
+	for _, storage := range resource.Storage {
+		storages = append(storages, manifest.NewStorage(storage.Name, uint64(storage.Quantity*unitOfStorage), storage.Persistent, storage.Mount))
+	}
+	return *manifest.NewResourceUnits(uint64(resource.CPU*unitOfCPU), uint64(resource.GPU), uint64(resource.Memory*unitOfMemory), storages)
 }
 
 func toServiceProto(protocol types.Protocol) (manifest.ServiceProtocol, error) {
@@ -202,7 +207,7 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 	}
 
 	storage := int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / unitOfStorage
-	service.Storage = types.Storage{Quantity: storage}
+	service.Storage = []*types.Storage{{Quantity: storage}}
 
 	for _, containerPort := range container.Ports {
 		service.Ports = append(service.Ports, types.Port{
@@ -247,11 +252,16 @@ func k8sStatefulSetToService(statefulSet *appsv1.StatefulSet) (*types.Service, e
 	service.Memory = container.Resources.Limits.Memory().Value() / unitOfMemory
 
 	storage := int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / unitOfStorage
-
-	if len(statefulSet.Spec.VolumeClaimTemplates) > 0 {
-		storage += int64(statefulSet.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage().AsApproximateFloat64()) / unitOfStorage
+	service.Storage = []*types.Storage{{Quantity: storage, Persistent: false}}
+	//if len(statefulSet.Spec.VolumeClaimTemplates) > 0 {
+	//	storage += int64(statefulSet.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage().AsApproximateFloat64()) / unitOfStorage
+	//}
+	for _, template := range statefulSet.Spec.VolumeClaimTemplates {
+		service.Storage = append(service.Storage, &types.Storage{
+			Persistent: true,
+			Quantity:   int64(template.Spec.Resources.Requests.Storage().AsApproximateFloat64()) / unitOfStorage},
+		)
 	}
-	service.Storage = types.Storage{Quantity: storage, Persistent: true}
 
 	for _, containerPort := range container.Ports {
 		service.Ports = append(service.Ports, types.Port{

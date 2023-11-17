@@ -139,7 +139,7 @@ var CreateDeployment = &cli.Command{
 						CPU:     cctx.Float64("cpu"),
 						GPU:     cctx.Float64("gpu"),
 						Memory:  cctx.Int64("mem"),
-						Storage: types.Storage{Quantity: cctx.Int64("storage")},
+						Storage: []*types.Storage{{Quantity: cctx.Int64("storage")}},
 					},
 					Env:       env,
 					Arguments: cctx.StringSlice("args"),
@@ -254,6 +254,11 @@ var DeploymentList = &cli.Command{
 					exposePorts = append(exposePorts, fmt.Sprintf("%d->%d", port.Port, port.ExposePort))
 				}
 
+				var storageSize int64
+				for _, storage := range service.Storage {
+					storageSize += storage.Quantity
+				}
+
 				m := map[string]interface{}{
 					"ID":          deployment.ID,
 					"Image":       service.Image,
@@ -265,7 +270,7 @@ var DeploymentList = &cli.Command{
 					"CPU":         service.CPU,
 					"GPU":         service.GPU,
 					"Memory":      units.BytesSize(float64(service.Memory * units.MiB)),
-					"Storage":     units.BytesSize(float64(service.Storage.Quantity * units.MiB)),
+					"Storage":     units.BytesSize(float64(storageSize * units.MiB)),
 					"Provider":    deployment.ProviderExposeIP,
 					"Port":        strings.Join(exposePorts, " "),
 					"CreatedTime": deployment.CreatedAt.Format(defaultDateTimeLayout),

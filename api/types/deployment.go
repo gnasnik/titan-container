@@ -170,10 +170,10 @@ type GetDeploymentOption struct {
 }
 
 type ComputeResources struct {
-	CPU     float64 `db:"cpu"`
-	GPU     float64 `db:"gpu"`
-	Memory  int64   `db:"memory"`
-	Storage Storage `db:"storage"`
+	CPU     float64  `db:"cpu"`
+	GPU     float64  `db:"gpu"`
+	Memory  int64    `db:"memory"`
+	Storage Storages `db:"storage"`
 }
 
 type Storage struct {
@@ -183,11 +183,13 @@ type Storage struct {
 	Mount      string `db:"mount"`
 }
 
-func (s Storage) Value() (driver.Value, error) {
+type Storages []*Storage
+
+func (s Storages) Value() (driver.Value, error) {
 	return json.Marshal(s)
 }
 
-func (s Storage) Scan(value interface{}) error {
+func (s Storages) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
