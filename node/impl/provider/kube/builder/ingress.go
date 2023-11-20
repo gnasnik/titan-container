@@ -43,7 +43,7 @@ func (b *ingress) Create() (*netv1.Ingress, error) {
 			Annotations: kubeNginxIngressAnnotations(directive),
 		},
 		Spec: netv1.IngressSpec{
-			Rules: ingressRules(directive.Hostname, directive.ServiceName, directive.ServicePort),
+			Rules: ingressRules([]string{directive.Hostname}, directive.ServiceName, directive.ServicePort),
 		},
 	}
 
@@ -60,9 +60,16 @@ func (b *ingress) Create() (*netv1.Ingress, error) {
 
 func (b *ingress) Update(obj *netv1.Ingress) (*netv1.Ingress, error) {
 	directive := b.directive
-	rules := ingressRules(directive.Hostname, directive.ServiceName, directive.ServicePort)
+
+	var hostnames []string
+	for _, rule := range obj.Spec.Rules {
+		hostnames = append(hostnames, rule.Host)
+	}
+
+	rules := ingressRules(hostnames, directive.ServiceName, directive.ServicePort)
 
 	obj.ObjectMeta.Labels = b.labels()
+
 	obj.Spec.Rules = rules
 	return obj, nil
 }
@@ -116,26 +123,30 @@ func kubeNginxIngressAnnotations(directive *HostnameDirective) map[string]string
 	return result
 }
 
-func ingressRules(hostname string, kubeServiceName string, kubeServicePort int32) []netv1.IngressRule {
+func ingressRules(hostnames []string, kubeServiceName string, kubeServicePort int32) []netv1.IngressRule {
 	// for some reason we need to pass a pointer to this
-	pathTypeForAll := netv1.PathTypePrefix
-	ruleValue := netv1.HTTPIngressRuleValue{
-		Paths: []netv1.HTTPIngressPath{{
-			Path:     "/",
-			PathType: &pathTypeForAll,
-			Backend: netv1.IngressBackend{
-				Service: &netv1.IngressServiceBackend{
-					Name: kubeServiceName,
-					Port: netv1.ServiceBackendPort{
-						Number: kubeServicePort,
+	var out []netv1.IngressRule
+	for _, hostname := range hostnames {
+		pathTypeForAll := netv1.PathTypePrefix
+		ruleValue := netv1.HTTPIngressRuleValue{
+			Paths: []netv1.HTTPIngressPath{{
+				Path:     "/",
+				PathType: &pathTypeForAll,
+				Backend: netv1.IngressBackend{
+					Service: &netv1.IngressServiceBackend{
+						Name: kubeServiceName,
+						Port: netv1.ServiceBackendPort{
+							Number: kubeServicePort,
+						},
 					},
 				},
-			},
-		}},
+			}},
+		}
+		out = append(out, netv1.IngressRule{
+			Host:             hostname,
+			IngressRuleValue: netv1.IngressRuleValue{HTTP: &ruleValue},
+		})
 	}
 
-	return []netv1.IngressRule{{
-		Host:             hostname,
-		IngressRuleValue: netv1.IngressRuleValue{HTTP: &ruleValue},
-	}}
+	return out
 }
