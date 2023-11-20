@@ -190,7 +190,7 @@ func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployme
 					}
 					if secret != nil {
 						ingressTLS = netv1.IngressTLS{
-							Hosts:      []string{c.providerConfig.HostName},
+							Hosts:      []string{hostDirective.Hostname},
 							SecretName: secret.Name,
 						}
 					}
