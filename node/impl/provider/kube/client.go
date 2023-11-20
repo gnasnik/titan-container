@@ -40,6 +40,8 @@ type Client interface {
 	UpdateIngress(ctx context.Context, ns string, ingress *netv1.Ingress) (*netv1.Ingress, error)
 	DeploymentCmdExec(ctx context.Context, cfgPath, ns, name string, stdin io.Reader, stdout, stderr io.Writer, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) error
+	GetSecret(ctx context.Context, ns string, name string) (*corev1.Secret, error)
+	CreateSecret(ctx context.Context, ns string, name string, data map[string][]byte) (*corev1.Secret, error)
 }
 
 type client struct {
@@ -166,14 +168,37 @@ func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployme
 			}
 		}
 
-		if len(c.providerConfig.HostName) > 0 {
-			for _, expose := range service.Expose {
-				if builder.ShouldBeIngress(expose) {
-					hostDirective := builder.BuildHostNameDirective(ns.Name(), c.providerConfig.HostName, service.Name, c.providerConfig.IngressClassName, expose)
-					if err := applyIngress(ctx, c.kc, builder.BuildIngress(workload, hostDirective)); err != nil {
-						c.log.Errorf("applying ingress error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
-						return err
+		if len(c.providerConfig.HostName) == 0 {
+			continue
+		}
+
+		for _, expose := range service.Expose {
+			if builder.ShouldBeIngress(expose) {
+				hostDirective := builder.BuildHostNameDirective(
+					ns.Name(),
+					c.providerConfig.HostName,
+					service.Name,
+					c.providerConfig.IngressClassName,
+					expose,
+				)
+
+				var ingressTLS netv1.IngressTLS
+				if c.providerConfig.Certificate != "" && c.providerConfig.CertificateKey != "" {
+					secret, err := getOrCreateSecretFromHostname(ctx, c.kc, ns.Name(), c.providerConfig.HostName, c.providerConfig.Certificate, c.providerConfig.CertificateKey)
+					if err != nil {
+						c.log.Errorf("getOrCreateSecretFromHostname error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
 					}
+					if secret != nil {
+						ingressTLS = netv1.IngressTLS{
+							Hosts:      []string{c.providerConfig.HostName},
+							SecretName: secret.Name,
+						}
+					}
+				}
+
+				if err := applyIngress(ctx, c.kc, builder.BuildIngress(workload, hostDirective, []netv1.IngressTLS{ingressTLS})); err != nil {
+					c.log.Errorf("applying ingress error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
+					return err
 				}
 			}
 		}
@@ -269,4 +294,18 @@ func (c *client) DeploymentCmdExec(ctx context.Context, cfgPath, ns, name string
 	}
 
 	return nil
+}
+
+func (c *client) GetSecret(ctx context.Context, ns string, name string) (*v1.Secret, error) {
+	return c.kc.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
+}
+
+func (c *client) CreateSecret(ctx context.Context, ns string, name string, data map[string][]byte) (*corev1.Secret, error) {
+	return c.kc.CoreV1().Secrets(ns).Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Data: data,
+		Type: corev1.SecretTypeOpaque,
+	}, metav1.CreateOptions{})
 }

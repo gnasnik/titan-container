@@ -19,14 +19,16 @@ type Ingress interface {
 type ingress struct {
 	Workload
 	directive *HostnameDirective
+	tls       []netv1.IngressTLS
 }
 
 var _ Ingress = (*ingress)(nil)
 
-func BuildIngress(workload Workload, directive *HostnameDirective) Ingress {
+func BuildIngress(workload Workload, directive *HostnameDirective, tls []netv1.IngressTLS) Ingress {
 	return &ingress{
 		Workload:  workload,
 		directive: directive,
+		tls:       tls,
 	}
 }
 
@@ -47,6 +49,10 @@ func (b *ingress) Create() (*netv1.Ingress, error) {
 
 	if len(ingressClassName) > 0 {
 		obj.Spec.IngressClassName = &ingressClassName
+	}
+
+	if len(b.tls) > 0 {
+		obj.Spec.TLS = b.tls
 	}
 
 	return obj, nil

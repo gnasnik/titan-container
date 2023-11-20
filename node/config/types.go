@@ -31,8 +31,9 @@ type ProviderCfg struct {
 	Owner            string
 	HostURI          string
 	HostName         string
+	Certificate      string
+	CertificateKey   string
 	ExposeIP         string
 	IngressClassName string
-
-	KubeConfigPath string
+	KubeConfigPath   string
 }

@@ -4,6 +4,8 @@ package kube
 
 import (
 	"context"
+	corev1 "k8s.io/api/core/v1"
+	"os"
 
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -132,4 +134,32 @@ func applyIngress(ctx context.Context, kc kubernetes.Interface, b builder.Ingres
 		}
 	}
 	return err
+}
+
+func getOrCreateSecretFromHostname(ctx context.Context, kc kubernetes.Interface, ns, hostname, certificate, certificateKey string) (*corev1.Secret, error) {
+	secret, err := kc.CoreV1().Secrets(ns).Get(ctx, hostname, metav1.GetOptions{})
+	if err == nil {
+		return secret, nil
+	}
+
+	certFile, err := os.ReadFile(certificate)
+	if err != nil {
+		return nil, err
+	}
+
+	certKeyFile, err := os.ReadFile(certificateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return kc.CoreV1().Secrets(ns).Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: hostname,
+		},
+		Data: map[string][]byte{
+			"cert": certFile,
+			"key":  certKeyFile,
+		},
+		Type: corev1.SecretTypeOpaque,
+	}, metav1.CreateOptions{})
 }
