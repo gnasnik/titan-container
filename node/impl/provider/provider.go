@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"github.com/Filecoin-Titan/titan-container/api"
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	"github.com/google/uuid"
@@ -14,7 +15,7 @@ var session = uuid.New()
 type Provider struct {
 	fx.In
 
-	Manager Manager
+	Client Client
 }
 
 var _ api.Provider = &Provider{}
@@ -28,40 +29,40 @@ func (p *Provider) Version(context.Context) (api.Version, error) {
 }
 
 func (p *Provider) GetStatistics(ctx context.Context) (*types.ResourcesStatistics, error) {
-	return p.Manager.GetStatistics(ctx)
+	return p.Client.GetStatistics(ctx)
 }
 
 func (p *Provider) GetDeployment(ctx context.Context, id types.DeploymentID) (*types.Deployment, error) {
-	return p.Manager.GetDeployment(ctx, id)
+	return p.Client.GetDeployment(ctx, id)
 }
 
 func (p *Provider) CreateDeployment(ctx context.Context, deployment *types.Deployment) error {
-	return p.Manager.CreateDeployment(ctx, deployment)
+	return p.Client.CreateDeployment(ctx, deployment)
 }
 
 func (p *Provider) UpdateDeployment(ctx context.Context, deployment *types.Deployment) error {
-	return p.Manager.UpdateDeployment(ctx, deployment)
+	return p.Client.UpdateDeployment(ctx, deployment)
 }
 
 func (p *Provider) CloseDeployment(ctx context.Context, deployment *types.Deployment) error {
-	return p.Manager.CloseDeployment(ctx, deployment)
+	return p.Client.CloseDeployment(ctx, deployment)
 }
 
 func (p *Provider) GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.ServiceLog, error) {
-	return p.Manager.GetLogs(ctx, id)
+	return p.Client.GetLogs(ctx, id)
 }
 func (p *Provider) GetEvents(ctx context.Context, id types.DeploymentID) ([]*types.ServiceEvent, error) {
-	return p.Manager.GetEvents(ctx, id)
+	return p.Client.GetEvents(ctx, id)
 }
 
 func (p *Provider) GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
-	return p.Manager.GetDeploymentDomains(ctx, id)
+	return p.Client.GetDeploymentDomains(ctx, id)
 }
 
 func (p *Provider) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
-	return p.Manager.AddDeploymentDomain(ctx, id, hostname)
+	return p.Client.AddDeploymentDomain(ctx, id, hostname)
 }
 
 func (p *Provider) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
-	return p.Manager.DeleteDeploymentDomain(ctx, id, index)
+	return p.Client.DeleteDeploymentDomain(ctx, id, index)
 }

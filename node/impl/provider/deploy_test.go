@@ -16,7 +16,7 @@ import (
 
 func TestCreateDeploy(t *testing.T) {
 	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
-	manager, err := NewManager(config)
+	client, err := NewClient(config)
 	require.NoError(t, err)
 
 	port := types.Port{Port: 6379}
@@ -27,13 +27,13 @@ func TestCreateDeploy(t *testing.T) {
 		Services: []*types.Service{&service},
 	}
 
-	err = manager.CreateDeployment(context.Background(), &deploy)
+	err = client.CreateDeployment(context.Background(), &deploy)
 	require.NoError(t, err)
 }
 
 func TestUplodateDeploy(t *testing.T) {
 	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
-	manager, err := NewManager(config)
+	client, err := NewClient(config)
 	require.NoError(t, err)
 
 	port := types.Port{Port: 6379}
@@ -45,7 +45,7 @@ func TestUplodateDeploy(t *testing.T) {
 		Services: []*types.Service{&service},
 	}
 
-	err = manager.UpdateDeployment(context.Background(), &deploy)
+	err = client.UpdateDeployment(context.Background(), &deploy)
 	require.NoError(t, err)
 }
 
@@ -67,10 +67,10 @@ func TestDeleteDeploy(t *testing.T) {
 
 func TestResourcesStatistics(t *testing.T) {
 	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
-	manager, err := NewManager(config)
+	client, err := NewClient(config)
 	require.NoError(t, err)
 
-	statistics, err := manager.GetStatistics(context.Background())
+	statistics, err := client.GetStatistics(context.Background())
 	require.NoError(t, err)
 
 	t.Logf("nodeResources %#v", *statistics)
@@ -79,10 +79,10 @@ func TestResourcesStatistics(t *testing.T) {
 
 func TestGetDeployment(t *testing.T) {
 	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
-	manager, err := NewManager(config)
+	client, err := NewClient(config)
 	require.NoError(t, err)
 
-	deployment, err := manager.GetDeployment(context.Background(), types.DeploymentID("2222"))
+	deployment, err := client.GetDeployment(context.Background(), types.DeploymentID("2222"))
 	require.NoError(t, err)
 
 	for _, service := range deployment.Services {
@@ -116,10 +116,10 @@ func TestListDeployment(t *testing.T) {
 
 func TestGetLogs(t *testing.T) {
 	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
-	manager, err := NewManager(config)
+	client, err := NewClient(config)
 	require.NoError(t, err)
 
-	logs, err := manager.GetLogs(context.Background(), types.DeploymentID("1111"))
+	logs, err := client.GetLogs(context.Background(), types.DeploymentID("1111"))
 	require.NoError(t, err)
 
 	for _, serviceLog := range logs {
@@ -140,10 +140,10 @@ func formatLogs(log string) []string {
 
 func TestGetEvents(t *testing.T) {
 	config := &config.ProviderCfg{KubeConfigPath: "./test/config", ExposeIP: "192.168.0.132"}
-	manager, err := NewManager(config)
+	client, err := NewClient(config)
 	require.NoError(t, err)
 
-	events, err := manager.GetEvents(context.Background(), types.DeploymentID("2222"))
+	events, err := client.GetEvents(context.Background(), types.DeploymentID("2222"))
 	require.NoError(t, err)
 
 	for _, serviceEvent := range events {

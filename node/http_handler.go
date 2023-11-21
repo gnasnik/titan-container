@@ -3,18 +3,19 @@ package node
 import (
 	"bytes"
 	"encoding/binary"
+	"net/http"
+	"path"
+	"sync"
+
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	cliutil "github.com/Filecoin-Titan/titan-container/cli/util"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider"
 	"github.com/gorilla/websocket"
 	"k8s.io/client-go/tools/remotecommand"
-	"net/http"
-	"path"
-	"sync"
 )
 
 type WebsocketHandler struct {
-	Manager provider.Manager
+	Client provider.Client
 }
 
 type DeploymentExecHandler http.HandlerFunc
@@ -93,7 +94,7 @@ func (w *WebsocketHandler) DeploymentExecHandler() http.HandlerFunc {
 		stdout := cliutil.NewWsWriterWrapper(c, types.ShellCodeStdout, l)
 		stderr := cliutil.NewWsWriterWrapper(c, types.ShellCodeStderr, l)
 
-		if err = w.Manager.DeploymentCmdExec(req.Context(), types.DeploymentID(id), reader, stdout, stderr, true, tsq); err != nil {
+		if err = w.Client.DeploymentCmdExec(req.Context(), types.DeploymentID(id), reader, stdout, stderr, true, tsq); err != nil {
 			if err := c.Close(); err != nil {
 				log.Errorf("close connection: %v", err)
 			}

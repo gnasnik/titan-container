@@ -5,13 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	"github.com/Filecoin-Titan/titan-container/node/config"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/manifest"
 	logging "github.com/ipfs/go-log/v2"
-	"io"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/remotecommand"
@@ -19,7 +20,7 @@ import (
 
 var log = logging.Logger("provider")
 
-type Manager interface {
+type Client interface {
 	GetStatistics(ctx context.Context) (*types.ResourcesStatistics, error)
 	CreateDeployment(ctx context.Context, deployment *types.Deployment) error
 	UpdateDeployment(ctx context.Context, deployment *types.Deployment) error
@@ -33,23 +34,23 @@ type Manager interface {
 	DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error
 }
 
-type manager struct {
+type client struct {
 	kc          kube.Client
 	providerCfg *config.ProviderCfg
 }
 
-var _ Manager = (*manager)(nil)
+var _ Client = (*client)(nil)
 
-func NewManager(config *config.ProviderCfg) (Manager, error) {
-	client, err := kube.NewClient(config.KubeConfigPath, config)
+func NewClient(config *config.ProviderCfg) (Client, error) {
+	kubeClient, err := kube.NewClient(config.KubeConfigPath, config)
 	if err != nil {
 		return nil, err
 	}
-	return &manager{kc: client, providerCfg: config}, nil
+	return &client{kc: kubeClient, providerCfg: config}, nil
 }
 
-func (m *manager) GetStatistics(ctx context.Context) (*types.ResourcesStatistics, error) {
-	nodeResources, err := m.kc.FetchNodeResources(ctx)
+func (c *client) GetStatistics(ctx context.Context) (*types.ResourcesStatistics, error) {
+	nodeResources, err := c.kc.FetchNodeResources(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -80,9 +81,9 @@ func (m *manager) GetStatistics(ctx context.Context) (*types.ResourcesStatistics
 	return statistics, nil
 }
 
-func (m *manager) CreateDeployment(ctx context.Context, deployment *types.Deployment) error {
+func (c *client) CreateDeployment(ctx context.Context, deployment *types.Deployment) error {
 	if deployment.Authority {
-		deployment.ProviderExposeIP = m.providerCfg.ExposeIP
+		deployment.ProviderExposeIP = c.providerCfg.ExposeIP
 	}
 
 	cDeployment, err := ClusterDeploymentFromDeployment(deployment)
@@ -94,19 +95,19 @@ func (m *manager) CreateDeployment(ctx context.Context, deployment *types.Deploy
 	did := cDeployment.DeploymentID()
 	ns := builder.DidNS(did)
 
-	if isExist, err := m.isDeploymentExist(ctx, ns); err != nil {
+	if isExist, err := c.isDeploymentExist(ctx, ns); err != nil {
 		return err
 	} else if isExist {
 		return fmt.Errorf("deployment %s already exist", deployment.ID)
 	}
 
 	ctx = context.WithValue(ctx, builder.SettingsKey, builder.NewDefaultSettings())
-	return m.kc.Deploy(ctx, cDeployment)
+	return c.kc.Deploy(ctx, cDeployment)
 }
 
-func (m *manager) UpdateDeployment(ctx context.Context, deployment *types.Deployment) error {
+func (c *client) UpdateDeployment(ctx context.Context, deployment *types.Deployment) error {
 	if deployment.Authority {
-		deployment.ProviderExposeIP = m.providerCfg.ExposeIP
+		deployment.ProviderExposeIP = c.providerCfg.ExposeIP
 	}
 
 	k8sDeployment, err := ClusterDeploymentFromDeployment(deployment)
@@ -118,17 +119,17 @@ func (m *manager) UpdateDeployment(ctx context.Context, deployment *types.Deploy
 	did := k8sDeployment.DeploymentID()
 	ns := builder.DidNS(did)
 
-	if isExist, err := m.isDeploymentExist(ctx, ns); err != nil {
+	if isExist, err := c.isDeploymentExist(ctx, ns); err != nil {
 		return err
 	} else if !isExist {
 		return fmt.Errorf("deployment %s do not exist", deployment.ID)
 	}
 
 	ctx = context.WithValue(ctx, builder.SettingsKey, builder.NewDefaultSettings())
-	return m.kc.Deploy(ctx, k8sDeployment)
+	return c.kc.Deploy(ctx, k8sDeployment)
 }
 
-func (m *manager) CloseDeployment(ctx context.Context, deployment *types.Deployment) error {
+func (c *client) CloseDeployment(ctx context.Context, deployment *types.Deployment) error {
 	k8sDeployment, err := ClusterDeploymentFromDeployment(deployment)
 	if err != nil {
 		log.Errorf("CloseDeployment %s", err.Error())
@@ -141,19 +142,19 @@ func (m *manager) CloseDeployment(ctx context.Context, deployment *types.Deploym
 		return fmt.Errorf("can not get ns from deployment id %s and owner %s", deployment.ID, deployment.Owner)
 	}
 
-	return m.kc.DeleteNS(ctx, ns)
+	return c.kc.DeleteNS(ctx, ns)
 }
 
-func (m *manager) GetDeployment(ctx context.Context, id types.DeploymentID) (*types.Deployment, error) {
+func (c *client) GetDeployment(ctx context.Context, id types.DeploymentID) (*types.Deployment, error) {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	services, err := m.getServices(ctx, ns)
+	services, err := c.getServices(ctx, ns)
 	if err != nil {
 		return nil, err
 	}
 
-	serviceList, err := m.kc.ListServices(ctx, ns)
+	serviceList, err := c.kc.ListServices(ctx, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -170,14 +171,14 @@ func (m *manager) GetDeployment(ctx context.Context, id types.DeploymentID) (*ty
 		}
 	}
 
-	return &types.Deployment{ID: id, Services: services, ProviderExposeIP: m.providerCfg.ExposeIP}, nil
+	return &types.Deployment{ID: id, Services: services, ProviderExposeIP: c.providerCfg.ExposeIP}, nil
 }
 
-func (m *manager) GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.ServiceLog, error) {
+func (c *client) GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.ServiceLog, error) {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	pods, err := m.getPods(ctx, ns)
+	pods, err := c.getPods(ctx, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +186,7 @@ func (m *manager) GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.
 	logMap := make(map[string][]types.Log)
 
 	for podName, serviceName := range pods {
-		buf, err := m.getPodLogs(ctx, ns, podName)
+		buf, err := c.getPodLogs(ctx, ns, podName)
 		if err != nil {
 			return nil, err
 		}
@@ -208,16 +209,16 @@ func (m *manager) GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.
 	return serviceLogs, nil
 }
 
-func (m *manager) GetEvents(ctx context.Context, id types.DeploymentID) ([]*types.ServiceEvent, error) {
+func (c *client) GetEvents(ctx context.Context, id types.DeploymentID) ([]*types.ServiceEvent, error) {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	pods, err := m.getPods(ctx, ns)
+	pods, err := c.getPods(ctx, ns)
 	if err != nil {
 		return nil, err
 	}
 
-	podEventMap, err := m.getEvents(ctx, ns)
+	podEventMap, err := c.getEvents(ctx, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -244,9 +245,9 @@ func (m *manager) GetEvents(ctx context.Context, id types.DeploymentID) ([]*type
 	return serviceEvents, nil
 }
 
-func (m *manager) getPods(ctx context.Context, ns string) (map[string]string, error) {
+func (c *client) getPods(ctx context.Context, ns string) (map[string]string, error) {
 	pods := make(map[string]string)
-	podList, err := m.kc.ListPods(context.Background(), ns, metav1.ListOptions{})
+	podList, err := c.kc.ListPods(context.Background(), ns, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -262,8 +263,8 @@ func (m *manager) getPods(ctx context.Context, ns string) (map[string]string, er
 	return pods, nil
 }
 
-func (m *manager) getPodLogs(ctx context.Context, ns string, podName string) ([]byte, error) {
-	reader, err := m.kc.PodLogs(ctx, ns, podName)
+func (c *client) getPodLogs(ctx context.Context, ns string, podName string) ([]byte, error) {
+	reader, err := c.kc.PodLogs(ctx, ns, podName)
 	if err != nil {
 		return nil, err
 	}
@@ -277,8 +278,8 @@ func (m *manager) getPodLogs(ctx context.Context, ns string, podName string) ([]
 	return buf.Bytes(), nil
 }
 
-func (m *manager) getEvents(ctx context.Context, ns string) (map[string][]types.Event, error) {
-	eventList, err := m.kc.Events(ctx, ns, metav1.ListOptions{})
+func (c *client) getEvents(ctx context.Context, ns string) (map[string][]types.Event, error) {
+	eventList, err := c.kc.Events(ctx, ns, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -302,8 +303,8 @@ func (m *manager) getEvents(ctx context.Context, ns string) (map[string][]types.
 	return eventMap, nil
 }
 
-func (m *manager) getServices(ctx context.Context, ns string) ([]*types.Service, error) {
-	deploymentList, err := m.kc.ListDeployments(ctx, ns)
+func (c *client) getServices(ctx context.Context, ns string) ([]*types.Service, error) {
+	deploymentList, err := c.kc.ListDeployments(ctx, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -312,15 +313,15 @@ func (m *manager) getServices(ctx context.Context, ns string) ([]*types.Service,
 		return k8sDeploymentsToServices(deploymentList)
 	}
 
-	statefulSets, err := m.kc.ListStatefulSets(ctx, ns)
+	statefulSets, err := c.kc.ListStatefulSets(ctx, ns)
 	if err != nil {
 		return nil, err
 	}
 	return k8sStatefulSetsToServices(statefulSets)
 }
 
-func (m *manager) isDeploymentExist(ctx context.Context, ns string) (bool, error) {
-	deploymentList, err := m.kc.ListDeployments(ctx, ns)
+func (c *client) isDeploymentExist(ctx context.Context, ns string) (bool, error) {
+	deploymentList, err := c.kc.ListDeployments(ctx, ns)
 	if err != nil {
 		return false, err
 	}
@@ -329,7 +330,7 @@ func (m *manager) isDeploymentExist(ctx context.Context, ns string) (bool, error
 		return true, nil
 	}
 
-	statefulSets, err := m.kc.ListStatefulSets(ctx, ns)
+	statefulSets, err := c.kc.ListStatefulSets(ctx, ns)
 	if err != nil {
 		return false, err
 	}
@@ -340,12 +341,12 @@ func (m *manager) isDeploymentExist(ctx context.Context, ns string) (bool, error
 	return false, nil
 }
 
-func (m *manager) GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
+func (c *client) GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
 	var out []*types.DeploymentDomain
-	ingress, err := m.kc.GetIngress(ctx, ns, m.providerCfg.HostName)
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
 	if err != nil {
 		return nil, err
 	}
@@ -359,11 +360,11 @@ func (m *manager) GetDeploymentDomains(ctx context.Context, id types.DeploymentI
 	return out, nil
 }
 
-func (m *manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
+func (c *client) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	ingress, err := m.kc.GetIngress(ctx, ns, m.providerCfg.HostName)
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
 	if err != nil {
 		return err
 	}
@@ -379,15 +380,15 @@ func (m *manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID
 	newRule.IngressRuleValue = ingress.Spec.Rules[0].IngressRuleValue
 	ingress.Spec.Rules = append(ingress.Spec.Rules, newRule)
 
-	_, err = m.kc.UpdateIngress(ctx, ns, ingress)
+	_, err = c.kc.UpdateIngress(ctx, ns, ingress)
 	return nil
 }
 
-func (m *manager) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
+func (c *client) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	ingress, err := m.kc.GetIngress(ctx, ns, m.providerCfg.HostName)
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
 	if err != nil {
 		return err
 	}
@@ -399,15 +400,15 @@ func (m *manager) DeleteDeploymentDomain(ctx context.Context, id types.Deploymen
 	newRules := append(ingress.Spec.Rules[:index-1], ingress.Spec.Rules[index:]...)
 	ingress.Spec.Rules = newRules
 
-	_, err = m.kc.UpdateIngress(ctx, ns, ingress)
+	_, err = c.kc.UpdateIngress(ctx, ns, ingress)
 	return nil
 }
 
-func (m *manager) DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error {
+func (c *client) DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	pods, err := m.getPods(ctx, ns)
+	pods, err := c.getPods(ctx, ns)
 	if err != nil {
 		return err
 	}
@@ -422,5 +423,5 @@ func (m *manager) DeploymentCmdExec(ctx context.Context, id types.DeploymentID, 
 		break
 	}
 
-	return m.kc.DeploymentCmdExec(ctx, m.providerCfg.KubeConfigPath, ns, name, stdin, stdout, stderr, tty, terminalSizeQueue)
+	return c.kc.DeploymentCmdExec(ctx, c.providerCfg.KubeConfigPath, ns, name, stdin, stdout, stderr, tty, terminalSizeQueue)
 }

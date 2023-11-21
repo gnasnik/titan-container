@@ -2,6 +2,7 @@ package node
 
 import (
 	"errors"
+
 	"github.com/Filecoin-Titan/titan-container/api"
 	"github.com/Filecoin-Titan/titan-container/node/config"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider"
@@ -40,15 +41,15 @@ func ConfigProvider(c interface{}) Option {
 	return Options(
 		ConfigCommon(&cfg.Common),
 		Override(new(*config.ProviderCfg), cfg),
-		Override(new(provider.Manager), provider.NewManager),
+		Override(new(provider.Client), provider.NewClient),
 	)
 }
 
 func ConfigWebsocketHandler(out *WebsocketHandler) Option {
 	return Options(
-		Override(ConfigWsHandler, func(manger provider.Manager) {
+		Override(ConfigWsHandler, func(client provider.Client) {
 			*out = WebsocketHandler{
-				Manager: manger,
+				Client: client,
 			}
 		}),
 	)
