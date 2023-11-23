@@ -163,6 +163,7 @@ func (a Ports) Scan(value interface{}) error {
 type GetDeploymentOption struct {
 	Owner        string
 	DeploymentID DeploymentID
+	ProviderID   ProviderID
 	State        []DeploymentState
 	Page         int
 	Size         int

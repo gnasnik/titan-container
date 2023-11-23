@@ -80,6 +80,10 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 		condition = append(condition, fmt.Sprintf(`d.owner = '%s'`, option.Owner))
 	}
 
+	if option.ProviderID != "" {
+		condition = append(condition, fmt.Sprintf(`d.provider_id = '%s'`, option.ProviderID))
+	}
+
 	if len(option.State) > 0 {
 		var states []string
 		for _, s := range option.State {
@@ -105,7 +109,7 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 
 	offset := (option.Page - 1) * option.Size
 	limit := option.Size
-	qry += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+	qry += fmt.Sprintf(" ORDER BY created_at DESC LIMIT %d OFFSET %d", limit, offset)
 
 	err := m.db.SelectContext(ctx, &ds, qry)
 	if err != nil {

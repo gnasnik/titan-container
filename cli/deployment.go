@@ -178,6 +178,10 @@ var DeploymentList = &cli.Command{
 			Name:  "id",
 			Usage: "the deployment id",
 		},
+		&cli.StringFlag{
+			Name:  "provider-id",
+			Usage: "the provider id",
+		},
 		&cli.BoolFlag{
 			Name:  "show-all",
 			Usage: "show deleted and inactive deployments",
@@ -223,6 +227,7 @@ var DeploymentList = &cli.Command{
 			Owner:        cctx.String("owner"),
 			State:        []types.DeploymentState{types.DeploymentStateActive},
 			DeploymentID: types.DeploymentID(cctx.String("id")),
+			ProviderID:   types.ProviderID(cctx.String("provider-id")),
 			Page:         cctx.Int("page"),
 			Size:         cctx.Int("size"),
 		}
