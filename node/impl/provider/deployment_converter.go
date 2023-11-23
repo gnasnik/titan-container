@@ -183,7 +183,12 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 	}
 
 	container := deployment.Spec.Template.Spec.Containers[0]
-	service := &types.Service{Image: container.Image, Name: deployment.Name}
+	service := &types.Service{
+		Image: container.Image,
+		Name:  deployment.Name,
+		Env:   make(map[string]string),
+	}
+
 	service.CPU = container.Resources.Limits.Cpu().AsApproximateFloat64()
 	service.Memory = container.Resources.Limits.Memory().Value() / unitOfMemory
 
@@ -192,6 +197,9 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 		gpu = container.Resources.Limits.Name(builder.ResourceGPUAMD, resource.DecimalSI).AsApproximateFloat64()
 	}
 	service.GPU = gpu
+	for _, envVal := range container.Env {
+		service.Env[envVal.Name] = envVal.Value
+	}
 
 	storage := int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / unitOfStorage
 	service.Storage = types.Storage{Quantity: storage}
