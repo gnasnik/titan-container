@@ -184,9 +184,9 @@ func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployme
 
 				var ingressTLS netv1.IngressTLS
 				if c.providerConfig.Certificate != "" && c.providerConfig.CertificateKey != "" {
-					secret, err := getOrCreateSecretFromHostname(ctx, c.kc, ns.Name(), c.providerConfig.HostName, c.providerConfig.Certificate, c.providerConfig.CertificateKey)
+					secret, err := getOrCreateTLSSecretFromHostname(ctx, c.kc, ns.Name(), c.providerConfig.HostName, c.providerConfig.Certificate, c.providerConfig.CertificateKey)
 					if err != nil {
-						c.log.Errorf("getOrCreateSecretFromHostname error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
+						c.log.Errorf("getOrCreateTLSSecretFromHostname error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
 					}
 					if secret != nil {
 						ingressTLS = netv1.IngressTLS{
