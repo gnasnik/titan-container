@@ -31,7 +31,7 @@ type Client interface {
 	GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)
 	AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error
 	DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error
-	DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error
+	DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error
 }
 
 type client struct {
@@ -404,7 +404,7 @@ func (c *client) DeleteDeploymentDomain(ctx context.Context, id types.Deployment
 	return nil
 }
 
-func (c *client) DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error {
+func (c *client) DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
@@ -423,5 +423,5 @@ func (c *client) DeploymentCmdExec(ctx context.Context, id types.DeploymentID, s
 		break
 	}
 
-	return c.kc.DeploymentCmdExec(ctx, c.providerCfg.KubeConfigPath, ns, name, stdin, stdout, stderr, tty, terminalSizeQueue)
+	return c.kc.DeploymentCmdExec(ctx, c.providerCfg.KubeConfigPath, ns, name, stdin, stdout, stderr, cmd, tty, terminalSizeQueue)
 }

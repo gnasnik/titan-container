@@ -15,7 +15,7 @@ import (
 	"sync"
 )
 
-func terminal(ctx context.Context, connUrl string,
+func handleRemoteTerminal(ctx context.Context, connUrl string,
 	stdin io.ReadCloser,
 	stdout io.Writer,
 	stderr io.Writer,
@@ -188,18 +188,18 @@ func handleTerminalResize(ctx context.Context, wg *sync.WaitGroup, input <-chan 
 		buf.Reset()
 		err := binary.Write(buf, binary.BigEndian, size.Width)
 		if err != nil {
-			saveError("encoding terminal size width", err)
+			saveError("encoding handleRemoteTerminal size width", err)
 			return
 		}
 		err = binary.Write(buf, binary.BigEndian, size.Height)
 		if err != nil {
-			saveError("encoding terminal size height", err)
+			saveError("encoding handleRemoteTerminal size height", err)
 			return
 		}
 
 		_, err = output.Write((buf).Bytes())
 		if err != nil {
-			saveError("sending terminal size to remote", err)
+			saveError("sending handleRemoteTerminal size to remote", err)
 			return
 		}
 	}

@@ -536,7 +536,7 @@ var ExecuteCmd = &cli.Command{
 			}
 		}()
 		shellFn := func() error {
-			return terminal(ctx, url, stdin, stdout, stderr, true, terminalResizes)
+			return handleRemoteTerminal(ctx, url, stdin, stdout, stderr, true, terminalResizes)
 		}
 
 		err = tty.Safe(shellFn)

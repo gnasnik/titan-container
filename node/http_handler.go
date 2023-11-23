@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"net/http"
 	"path"
+	"strings"
 	"sync"
 
 	"github.com/Filecoin-Titan/titan-container/api/types"
@@ -81,6 +82,11 @@ func (w *WebsocketHandler) DeploymentExecHandler() http.HandlerFunc {
 			return
 		}
 
+		command := []string{"sh"}
+		if req.URL.Query().Get("cmd") != "" {
+			command = strings.Split(req.URL.Query().Get("cmd"), ",")
+		}
+
 		tsq := &terminalSizeQueue{
 			resize: make(chan remotecommand.TerminalSize),
 		}
@@ -94,7 +100,7 @@ func (w *WebsocketHandler) DeploymentExecHandler() http.HandlerFunc {
 		stdout := cliutil.NewWsWriterWrapper(c, types.ShellCodeStdout, l)
 		stderr := cliutil.NewWsWriterWrapper(c, types.ShellCodeStderr, l)
 
-		if err = w.Client.DeploymentCmdExec(req.Context(), types.DeploymentID(id), reader, stdout, stderr, true, tsq); err != nil {
+		if err = w.Client.DeploymentCmdExec(req.Context(), types.DeploymentID(id), reader, stdout, stderr, command, true, tsq); err != nil {
 			if err := c.Close(); err != nil {
 				log.Errorf("close connection: %v", err)
 			}
