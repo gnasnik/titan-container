@@ -1,0 +1,24 @@
+Name: radix-nginx          # 服务名称
+Services:
+  - Image: radixdlt/babylon-nginx:1.0.1
+    CPU: 0.5                          # CPU核心，最小为 0.1核心
+    Memory: 500                       # 需要使用的内存，单位为 MiB
+    Storage:                          # 是否需要挂载（可选）
+      - Quantity: 50                   # 需要使用的挂载磁盘空间，单位为 MiB
+        Persistent: true                # 永久存储，此值必须为 true
+        Mount: "/etc/nginx/secrets"  # 容器挂载的目录
+    Ports: # 端口映射
+      - Port: 80                      # 容器的内部端口
+        ExposePort: 80                # 外部映射端口
+      - Port: 443                      # 容器的内部端口
+        ExposePort: 443                # 外部映射端口
+      - Port: 30000
+        ExposePort: 30000
+    Env:                              # 环境变量（可选）
+      RADIXDLT_GATEWAY_API_ENABLE: 'true'
+      RADIXDLT_GATEWAY_BEHIND_AUTH: 'true'
+      RADIXDLT_NETWORK_USE_PROXY_PROTOCOL: 'false'
+      RADIXDLT_TRANSACTIONS_API_ENABLE: 'false'
+      RADIXDLT_VALIDATOR_HOST: '10.42.1.9'
+      RADIXDLT_GATEWAY_API_HOST: '10.42.1.9'
+      RADIXDLT_DATA_AGGREGATOR_HOST: '10.42.1.9'

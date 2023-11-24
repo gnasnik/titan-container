@@ -1,0 +1,13 @@
+Name: github-pages
+Services:
+  - Image: starefossen/github-pages
+    Name: github-pages
+    CPU: 0.2
+    Memory: 200
+    Storage:
+      - Quantity: 200
+        Persistent: true
+        Mount: "/usr/src/app"
+    Ports:
+      - Port: 4000
+        ExposePort: 80

@@ -4,8 +4,8 @@ Services:
     CPU: 0.5
     Memory: 1024
     Storage:
-      Quantity: 500
-      Persistent: true
+      - Quantity: 500
+        Persistent: true
     Ports:
       - Port: 3306
     Env:

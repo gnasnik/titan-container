@@ -4,9 +4,12 @@ Services:
     CPU: 0.2
     Memory: 500
     Storage:
-      Quantity: 500
+      - Quantity: 500
+        Persistent: true
+        Mount: "/home/ssl"
+      - Quantity: 200
+        Persistent: true
+        Mount: "/usr/app"
     Ports:
       - Port: 80
         ExposePort: 80
-    Env:
-      VITE_REQUEST_BASE_URL: "https://652d690073d24cb2af8d92511c7c4e58.container2.titannet.io"

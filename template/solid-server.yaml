@@ -5,9 +5,9 @@ Services:
     CPU: 0.5
     Memory: 500
     Storage:
-      Quantity: 500
-      Persistent: true
-      Mount: "/data"
+      - Quantity: 500
+        Persistent: true
+        Mount: "/data"
     Ports:
       - Port: 3312
         ExposePort: 80

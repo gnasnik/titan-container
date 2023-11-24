@@ -5,9 +5,9 @@ Services:
     CPU: 0.1
     Memory: 100
     Storage:
-      Quantity: 500
-      Persistent: true
-      Mount: "/root/.titancandidate"
+      - Quantity: 500
+        Persistent: true
+        Mount: "/root/.titancandidate"
     Ports:
       - Port: 2345
         Protocol: "TCP"
