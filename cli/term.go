@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	cliutil "github.com/Filecoin-Titan/titan-container/cli/util"
@@ -11,8 +12,9 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"k8s.io/client-go/tools/remotecommand"
-	"net/url"
+	"net/http"
 	"sync"
+	"time"
 )
 
 func handleRemoteTerminal(ctx context.Context, connUrl string,
@@ -22,13 +24,13 @@ func handleRemoteTerminal(ctx context.Context, connUrl string,
 	tty bool,
 	terminalResize <-chan remotecommand.TerminalSize) error {
 
-	endpoint, err := url.Parse(connUrl)
-	if err != nil {
-		return err
+	wsclient := websocket.Dialer{
+		Proxy:            http.ProxyFromEnvironment,
+		HandshakeTimeout: 45 * time.Second,
 	}
 
 	subctx, subcancel := context.WithCancel(ctx)
-	conn, response, err := websocket.DefaultDialer.DialContext(subctx, endpoint.String(), nil)
+	conn, response, err := wsclient.DialContext(subctx, connUrl, nil)
 	if err != nil {
 		if errors.Is(err, websocket.ErrBadHandshake) {
 			buf := &bytes.Buffer{}
@@ -128,7 +130,7 @@ loop:
 
 	// Check to see if the remote end returned an error
 	if remoteErrorData != nil {
-		return errors.Errorf("remoteErrordata: %v", remoteErrorData)
+		return processRemoteError(remoteErrorData)
 	}
 
 	// Check to see if a goroutine failed
@@ -203,4 +205,22 @@ func handleTerminalResize(ctx context.Context, wg *sync.WaitGroup, input <-chan 
 			return
 		}
 	}
+}
+func processRemoteError(input io.Reader) error {
+	dec := json.NewDecoder(input)
+	var v types.ShellResponse
+	err := dec.Decode(&v)
+	if err != nil {
+		return fmt.Errorf("%w: failed parsing response data from provider", err)
+	}
+
+	if 0 != len(v.Message) {
+		return fmt.Errorf("%w: %s", errors.New("shell failed"), v.Message)
+	}
+
+	if 0 != v.ExitCode {
+		return fmt.Errorf("%w: remote process exited with code %d", errors.New("shell failed"), v.ExitCode)
+	}
+
+	return nil
 }

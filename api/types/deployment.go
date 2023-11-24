@@ -221,6 +221,11 @@ type DeploymentDomain struct {
 	State string
 }
 
+type ShellEndpoint struct {
+	Host      string
+	ShellPath string
+}
+
 const (
 	ShellCodeStdout         = 100
 	ShellCodeStderr         = 101
@@ -229,3 +234,12 @@ const (
 	ShellCodeStdin          = 104
 	ShellCodeTerminalResize = 105
 )
+
+type ExecResult struct {
+	Code int
+}
+
+type ShellResponse struct {
+	ExitCode int    `json:"exit_code"`
+	Message  string `json:"message,omitempty"`
+}

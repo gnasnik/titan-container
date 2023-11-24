@@ -55,9 +55,9 @@ type ManagerStruct struct {
 
 		GetDeploymentDomains func(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) `perm:"read"`
 
-		GetDeploymentExecWsURL func(p0 context.Context, p1 types.DeploymentID) (string, error) `perm:"admin"`
-
 		GetDeploymentList func(p0 context.Context, p1 *types.GetDeploymentOption) ([]*types.Deployment, error) `perm:"read"`
+
+		GetDeploymentShellEndpoint func(p0 context.Context, p1 types.DeploymentID) (*types.ShellEndpoint, error) `perm:"admin"`
 
 		GetEvents func(p0 context.Context, p1 *types.Deployment) ([]*types.ServiceEvent, error) `perm:"read"`
 
@@ -275,17 +275,6 @@ func (s *ManagerStub) GetDeploymentDomains(p0 context.Context, p1 types.Deployme
 	return *new([]*types.DeploymentDomain), ErrNotSupported
 }
 
-func (s *ManagerStruct) GetDeploymentExecWsURL(p0 context.Context, p1 types.DeploymentID) (string, error) {
-	if s.Internal.GetDeploymentExecWsURL == nil {
-		return "", ErrNotSupported
-	}
-	return s.Internal.GetDeploymentExecWsURL(p0, p1)
-}
-
-func (s *ManagerStub) GetDeploymentExecWsURL(p0 context.Context, p1 types.DeploymentID) (string, error) {
-	return "", ErrNotSupported
-}
-
 func (s *ManagerStruct) GetDeploymentList(p0 context.Context, p1 *types.GetDeploymentOption) ([]*types.Deployment, error) {
 	if s.Internal.GetDeploymentList == nil {
 		return *new([]*types.Deployment), ErrNotSupported
@@ -295,6 +284,17 @@ func (s *ManagerStruct) GetDeploymentList(p0 context.Context, p1 *types.GetDeplo
 
 func (s *ManagerStub) GetDeploymentList(p0 context.Context, p1 *types.GetDeploymentOption) ([]*types.Deployment, error) {
 	return *new([]*types.Deployment), ErrNotSupported
+}
+
+func (s *ManagerStruct) GetDeploymentShellEndpoint(p0 context.Context, p1 types.DeploymentID) (*types.ShellEndpoint, error) {
+	if s.Internal.GetDeploymentShellEndpoint == nil {
+		return nil, ErrNotSupported
+	}
+	return s.Internal.GetDeploymentShellEndpoint(p0, p1)
+}
+
+func (s *ManagerStub) GetDeploymentShellEndpoint(p0 context.Context, p1 types.DeploymentID) (*types.ShellEndpoint, error) {
+	return nil, ErrNotSupported
 }
 
 func (s *ManagerStruct) GetEvents(p0 context.Context, p1 *types.Deployment) ([]*types.ServiceEvent, error) {

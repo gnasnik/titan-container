@@ -22,6 +22,8 @@ import (
 
 var log = logging.Logger("manager")
 
+const shellPath = "/deployment/shell"
+
 // Manager represents a manager service in a cloud computing system.
 type Manager struct {
 	fx.In
@@ -309,25 +311,28 @@ func (m *Manager) DeleteDeploymentDomain(ctx context.Context, id types.Deploymen
 	return providerApi.DeleteDeploymentDomain(ctx, deploy.ID, index)
 }
 
-func (m *Manager) GetDeploymentExecWsURL(ctx context.Context, id types.DeploymentID) (string, error) {
+func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.DeploymentID) (*types.ShellEndpoint, error) {
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	remoteAddr, err := m.ProviderManager.GetRemoteAddr(deploy.ProviderID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	endpoint, err := url.Parse(remoteAddr)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	websocketUrl := fmt.Sprintf("ws://%s/deployment/exec/%s", endpoint.Host, deploy.ID)
+	connection := &types.ShellEndpoint{
+		Host:      fmt.Sprintf("ws://%s", endpoint.Host),
+		ShellPath: fmt.Sprintf("%s/%s", shellPath, deploy.ID),
+	}
 
-	return websocketUrl, nil
+	return connection, nil
 }
 
 var _ api.Manager = &Manager{}

@@ -31,7 +31,8 @@ type Client interface {
 	GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)
 	AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error
 	DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error
-	DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error
+	Exec(ctx context.Context, id types.DeploymentID, podIndex int, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
+		terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error)
 }
 
 type client struct {
@@ -404,24 +405,26 @@ func (c *client) DeleteDeploymentDomain(ctx context.Context, id types.Deployment
 	return nil
 }
 
-func (c *client) DeploymentCmdExec(ctx context.Context, id types.DeploymentID, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) error {
+func (c *client) Exec(ctx context.Context, id types.DeploymentID, podIndex int, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error) {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	pods, err := c.getPods(ctx, ns)
+	pods, err := c.kc.ListPods(context.Background(), ns, metav1.ListOptions{})
 	if err != nil {
-		return err
+		return types.ExecResult{Code: 0}, err
 	}
 
-	if len(pods) == 0 {
-		return errors.New("no pod found")
+	if pods == nil || len(pods.Items) == 0 {
+		return types.ExecResult{Code: 0}, errors.New("no pod found")
 	}
 
-	var name string
-	for k, _ := range pods {
-		name = k
-		break
+	if len(pods.Items) < podIndex {
+		return types.ExecResult{Code: 0}, errors.New("pod index not exist")
 	}
 
-	return c.kc.DeploymentCmdExec(ctx, c.providerCfg.KubeConfigPath, ns, name, stdin, stdout, stderr, cmd, tty, terminalSizeQueue)
+	podName := pods.Items[podIndex].Name
+	result, err := c.kc.Exec(ctx, c.providerCfg.KubeConfigPath, ns, podName, stdin, stdout, stderr, cmd, tty, terminalSizeQueue)
+
+	return types.ExecResult{Code: result.ExitCode()}, err
+
 }

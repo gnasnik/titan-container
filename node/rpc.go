@@ -98,7 +98,7 @@ func ProviderHandler(authv func(ctx context.Context, token string) ([]auth.Permi
 
 	mux.Handle("/rpc/v0", rpcServer)
 	mux.Handle("/rpc/streams/v0/push/{uuid}", readerHandler)
-	mux.Handle("/deployment/exec/{id}", h.DeploymentExecHandler())
+	mux.Handle("/deployment/shell/{id}", h.ShellHandler())
 	mux.PathPrefix("/").Handler(http.DefaultServeMux) // pprof
 
 	if !permissioned {

@@ -14,6 +14,7 @@ import (
 	"io"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/util/term"
+	"net/url"
 	"os"
 	"os/signal"
 	"sigs.k8s.io/yaml"
@@ -451,7 +452,14 @@ var UpdateDeployment = &cli.Command{
 var ExecuteCmd = &cli.Command{
 	Name:  "exec",
 	Usage: "deployment executor",
-	Flags: []cli.Flag{},
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:        "pod-index",
+			Usage:       "pod index",
+			DefaultText: "0",
+			Value:       "0",
+		},
+	},
 	Action: func(cctx *cli.Context) error {
 		api, closer, err := GetManagerAPI(cctx)
 		if err != nil {
@@ -465,10 +473,30 @@ var ExecuteCmd = &cli.Command{
 			return errors.Errorf("deploymentID empty")
 		}
 
-		url, err := api.GetDeploymentExecWsURL(ctx, deploymentID)
+		podIndex := cctx.String("pod-index")
+
+		commands := cctx.Args().Tail()
+		if len(commands) == 0 {
+			commands = []string{"sh"}
+		}
+
+		shellEndpoint, err := api.GetDeploymentShellEndpoint(ctx, deploymentID)
 		if err != nil {
 			return err
 		}
+
+		endpoint, err := url.Parse(shellEndpoint.Host + shellEndpoint.ShellPath)
+		if err != nil {
+			return err
+		}
+
+		query := url.Values{}
+		query.Set("podIndex", podIndex)
+		for index, cmd := range commands {
+			query.Set(fmt.Sprintf("cmd%d", index), cmd)
+		}
+
+		endpoint.RawQuery = query.Encode()
 
 		var stdin io.ReadCloser
 		var stdout io.Writer
@@ -536,7 +564,7 @@ var ExecuteCmd = &cli.Command{
 			}
 		}()
 		shellFn := func() error {
-			return handleRemoteTerminal(ctx, url, stdin, stdout, stderr, true, terminalResizes)
+			return handleRemoteTerminal(ctx, endpoint.String(), stdin, stdout, stderr, true, terminalResizes)
 		}
 
 		err = tty.Safe(shellFn)

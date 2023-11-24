@@ -3,25 +3,27 @@ package kube
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
-	"io"
-	netv1 "k8s.io/api/networking/v1"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/remotecommand"
-	"os"
-
 	"github.com/Filecoin-Titan/titan-container/node/config"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	logging "github.com/ipfs/go-log/v2"
+	"io"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
+	executil "k8s.io/client-go/util/exec"
 	"k8s.io/client-go/util/flowcontrol"
 	metricsclient "k8s.io/metrics/pkg/client/clientset/versioned"
+	"os"
 )
 
 type Client interface {
@@ -37,8 +39,8 @@ type Client interface {
 	Events(ctx context.Context, ns string, opts metav1.ListOptions) (*corev1.EventList, error)
 	GetIngress(ctx context.Context, ns string, hostname string) (*netv1.Ingress, error)
 	UpdateIngress(ctx context.Context, ns string, ingress *netv1.Ingress) (*netv1.Ingress, error)
-	DeploymentCmdExec(ctx context.Context, cfgPath, ns, name string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
-		terminalSizeQueue remotecommand.TerminalSizeQueue) error
+	Exec(ctx context.Context, cfgPath, ns, name string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
+		terminalSizeQueue remotecommand.TerminalSizeQueue) (execResult, error)
 	GetSecret(ctx context.Context, ns string, name string) (*corev1.Secret, error)
 	CreateSecret(ctx context.Context, ns string, name string, data map[string][]byte) (*corev1.Secret, error)
 }
@@ -48,6 +50,14 @@ type client struct {
 	metc           metricsclient.Interface
 	log            *logging.ZapEventLogger
 	providerConfig *config.ProviderCfg
+}
+
+type execResult struct {
+	exitCode int
+}
+
+func (er execResult) ExitCode() int {
+	return er.exitCode
 }
 
 func openKubeConfig(cfgPath string) (*rest.Config, error) {
@@ -248,16 +258,40 @@ func (c *client) UpdateIngress(ctx context.Context, ns string, ingress *netv1.In
 	return c.kc.NetworkingV1().Ingresses(ns).Update(ctx, ingress, metav1.UpdateOptions{})
 }
 
-func (c *client) DeploymentCmdExec(ctx context.Context, cfgPath, ns, name string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
-	terminalSizeQueue remotecommand.TerminalSizeQueue) error {
+func (c *client) Exec(ctx context.Context, cfgPath, ns, name string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
+	terminalSizeQueue remotecommand.TerminalSizeQueue) (execResult, error) {
 	pod, err := c.kc.CoreV1().Pods(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return err
+		return execResult{exitCode: 0}, err
 	}
+
+	groupVersion := schema.GroupVersion{Group: "api", Version: "v1"}
+	myScheme := runtime.NewScheme()
+	err = corev1.AddToScheme(myScheme)
+	if err != nil {
+		return execResult{exitCode: 0}, err
+	}
+
+	myParameterCodec := runtime.NewParameterCodec(myScheme)
+	myScheme.AddKnownTypes(groupVersion, &corev1.PodExecOptions{})
 
 	kubeConfig, err := openKubeConfig(cfgPath)
 	if err != nil {
-		return err
+		return execResult{exitCode: 0}, err
+	}
+
+	kubeConfig.GroupVersion = &groupVersion
+	codecFactory := serializer.NewCodecFactory(myScheme)
+	negotiatedSerializer := runtime.NegotiatedSerializer(codecFactory)
+	kubeConfig.NegotiatedSerializer = negotiatedSerializer
+
+	kubeRestClient, err := restclient.RESTClientFor(kubeConfig)
+	if err != nil {
+		return execResult{exitCode: 0}, fmt.Errorf("%w: failed getting REST client", err)
+	}
+
+	if tty {
+		stderr = nil
 	}
 
 	podOptions := &corev1.PodExecOptions{
@@ -268,11 +302,11 @@ func (c *client) DeploymentCmdExec(ctx context.Context, cfgPath, ns, name string
 		TTY:     tty,
 	}
 
-	request := c.kc.CoreV1().RESTClient().Post().Resource("pods").Name(name).Namespace(ns).SubResource("exec").VersionedParams(podOptions, scheme.ParameterCodec)
+	request := kubeRestClient.Post().Resource("pods").Name(name).Namespace(ns).SubResource("exec").VersionedParams(podOptions, myParameterCodec)
 	exec, err := remotecommand.NewSPDYExecutor(kubeConfig, "POST", request.URL())
 	if err != nil {
 		c.log.Errorf("remotecommand.NewSPDYExecutor error: %v", err)
-		return err
+		return execResult{exitCode: 0}, err
 	}
 
 	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
@@ -282,12 +316,21 @@ func (c *client) DeploymentCmdExec(ctx context.Context, cfgPath, ns, name string
 		Tty:               tty,
 		TerminalSizeQueue: terminalSizeQueue,
 	})
-	if err != nil {
-		c.log.Errorf("Failed executing: %v %s on %s", err, pod.Namespace, pod.Name)
-		return errors.Errorf("Failed executing: %v %s on %s", err, pod.Namespace, pod.Name)
+
+	if err == nil {
+		return execResult{exitCode: 0}, nil
 	}
 
-	return nil
+	if err, ok := err.(executil.CodeExitError); ok {
+		return execResult{exitCode: err.Code}, nil
+	}
+
+	if err != nil {
+		c.log.Errorf("Failed executing: %v %s on %s", err, pod.Namespace, pod.Name)
+		return execResult{exitCode: 0}, err
+	}
+
+	return execResult{exitCode: 0}, nil
 }
 
 func (c *client) GetSecret(ctx context.Context, ns string, name string) (*v1.Secret, error) {
