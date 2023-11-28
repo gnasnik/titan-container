@@ -322,17 +322,17 @@ func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.Deplo
 		return nil, err
 	}
 
-	endpoint, err := url.Parse(remoteAddr)
+	address, err := url.Parse(remoteAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	connection := &types.ShellEndpoint{
-		Host:      fmt.Sprintf("ws://%s", endpoint.Host),
+	endpoint := &types.ShellEndpoint{
+		Host:      address.Host,
 		ShellPath: fmt.Sprintf("%s/%s", shellPath, deploy.ID),
 	}
 
-	return connection, nil
+	return endpoint, nil
 }
 
 var _ api.Manager = &Manager{}

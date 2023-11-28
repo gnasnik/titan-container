@@ -52,7 +52,7 @@ func (w *WebsocketHandler) ShellHandler() http.HandlerFunc {
 
 		params := req.URL.Query()
 
-		isTty := true
+		isTty := false
 		connectStdin := true
 
 		tty := params.Get("tty")

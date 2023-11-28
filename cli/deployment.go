@@ -490,7 +490,7 @@ var ExecuteCmd = &cli.Command{
 			return err
 		}
 
-		endpoint, err := url.Parse(shellEndpoint.Host + shellEndpoint.ShellPath)
+		endpoint, err := url.Parse(fmt.Sprintf("ws://%s", shellEndpoint.Host+shellEndpoint.ShellPath))
 		if err != nil {
 			return err
 		}
@@ -500,7 +500,7 @@ var ExecuteCmd = &cli.Command{
 		for index, cmd := range commands {
 			query.Set(fmt.Sprintf("cmd%d", index), cmd)
 		}
-
+		query.Set("tty", "1")
 		endpoint.RawQuery = query.Encode()
 
 		var stdin io.ReadCloser
