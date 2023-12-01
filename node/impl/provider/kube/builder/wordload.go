@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -204,12 +203,6 @@ func (b *Workload) container() corev1.Container {
 			ContainerPort: int32(expose.Port),
 		})
 	}
-
-	buf, err := json.Marshal(kcontainer)
-	if err != nil {
-		fmt.Printf("Marshal err %s", err.Error())
-	}
-	fmt.Printf("deployment %#v", string(buf))
 
 	return kcontainer
 }

@@ -34,10 +34,7 @@ func (p *providerLife) Update() {
 }
 
 func (p *providerLife) Expired() bool {
-	if p.LastSeen.Add(ProviderTTL).Before(time.Now()) {
-		return true
-	}
-	return false
+	return p.LastSeen.Add(ProviderTTL).Before(time.Now())
 }
 
 func NewProviderScheduler() *ProviderManager {
@@ -51,7 +48,7 @@ func NewProviderScheduler() *ProviderManager {
 
 func (p *ProviderManager) AddProvider(id types.ProviderID, providerApi api.Provider, remoteAddr string) error {
 	p.lk.Lock()
-	p.lk.Unlock()
+	defer p.lk.Unlock()
 
 	_, exist := p.providers[id]
 	if exist {
@@ -63,6 +60,26 @@ func (p *ProviderManager) AddProvider(id types.ProviderID, providerApi api.Provi
 		LastSeen:   time.Now(),
 		remoteAddr: remoteAddr,
 	}
+	return nil
+}
+
+func (p *ProviderManager) CloseProvider(id types.ProviderID) error {
+	p.lk.Lock()
+	defer p.lk.Unlock()
+
+	oldProvider, exist := p.providers[id]
+	if !exist {
+		return nil
+	}
+
+	if provider, ok := oldProvider.Provider.(remoteProvider); ok {
+		provider.Close()
+	} else {
+		return errors.New("can not convert provider to remoteProvider")
+	}
+
+	delete(p.providers, id)
+
 	return nil
 }
 
@@ -95,10 +112,7 @@ func (p *ProviderManager) GetRemoteAddr(id types.ProviderID) (string, error) {
 func (p *ProviderManager) delProvider(id types.ProviderID) {
 	p.lk.Lock()
 	defer p.lk.Unlock()
-	if _, ok := p.providers[id]; ok {
-		delete(p.providers, id)
-	}
-	return
+	delete(p.providers, id)
 }
 
 func (p *ProviderManager) watch() {

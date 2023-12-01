@@ -49,9 +49,14 @@ func (m *Manager) GetStatistics(ctx context.Context, id types.ProviderID) (*type
 func (m *Manager) ProviderConnect(ctx context.Context, url string, provider *types.Provider) error {
 	remoteAddr := handler.GetRemoteAddr(ctx)
 
-	_, err := m.ProviderManager.Get(provider.ID)
-	if !errors.Is(err, ErrProviderNotExist) {
-		return nil
+	oldProvider, err := m.ProviderManager.Get(provider.ID)
+	if err != nil && !errors.Is(err, ErrProviderNotExist) {
+		return err
+	}
+
+	// close old provider
+	if oldProvider != nil {
+		m.ProviderManager.CloseProvider(provider.ID)
 	}
 
 	p, err := connectRemoteProvider(ctx, m, url)
