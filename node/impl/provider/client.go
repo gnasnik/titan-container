@@ -99,7 +99,7 @@ func (c *client) CreateDeployment(ctx context.Context, deployment *types.Deploym
 	did := cDeployment.DeploymentID()
 	ns := builder.DidNS(did)
 
-	if isExist, err := c.isDeploymentExist(ctx, ns); err != nil {
+	if isExist, err := c.isExistDeploymentOrStatefulSet(ctx, ns); err != nil {
 		return err
 	} else if isExist {
 		return fmt.Errorf("deployment %s already exist", deployment.ID)
@@ -123,7 +123,7 @@ func (c *client) UpdateDeployment(ctx context.Context, deployment *types.Deploym
 	did := k8sDeployment.DeploymentID()
 	ns := builder.DidNS(did)
 
-	if isExist, err := c.isDeploymentExist(ctx, ns); err != nil {
+	if isExist, err := c.isExistDeploymentOrStatefulSet(ctx, ns); err != nil {
 		return err
 	} else if !isExist {
 		return fmt.Errorf("deployment %s do not exist", deployment.ID)
@@ -143,7 +143,7 @@ func (c *client) UpdateDeployment(ctx context.Context, deployment *types.Deploym
 			}
 
 		} else {
-			_, err := c.kc.GetDeployments(ctx, ns, service.Name)
+			_, err := c.kc.GetDeployment(ctx, ns, service.Name)
 			if err != nil {
 				return err
 			}
@@ -174,7 +174,7 @@ func (c *client) GetDeployment(ctx context.Context, id types.DeploymentID) (*typ
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	services, err := c.getServices(ctx, ns)
+	services, err := c.getTitanServices(ctx, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +328,8 @@ func (c *client) getEvents(ctx context.Context, ns string) (map[string][]types.E
 	return eventMap, nil
 }
 
-func (c *client) getServices(ctx context.Context, ns string) ([]*types.Service, error) {
+// this is titan services not k8s services
+func (c *client) getTitanServices(ctx context.Context, ns string) ([]*types.Service, error) {
 	deploymentList, err := c.kc.ListDeployments(ctx, ns)
 	if err != nil {
 		return nil, err
@@ -373,7 +374,7 @@ func (c *client) checkStatefulSetStorage(storages []*manifest.Storage, pvcs []co
 	return true
 }
 
-func (c *client) isDeploymentExist(ctx context.Context, ns string) (bool, error) {
+func (c *client) isExistDeploymentOrStatefulSet(ctx context.Context, ns string) (bool, error) {
 	deploymentList, err := c.kc.ListDeployments(ctx, ns)
 	if err != nil {
 		return false, err

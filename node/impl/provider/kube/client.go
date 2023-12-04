@@ -32,7 +32,8 @@ type Client interface {
 	GetNS(ctx context.Context, ns string) (*v1.Namespace, error)
 	DeleteNS(ctx context.Context, ns string) error
 	FetchNodeResources(ctx context.Context) (map[string]*nodeResource, error)
-	GetDeployments(ctx context.Context, ns string, deploymentName string) (*appsv1.Deployment, error)
+	GetPod(ctx context.Context, ns string, podName string) (*corev1.Pod, error)
+	GetDeployment(ctx context.Context, ns string, deploymentName string) (*appsv1.Deployment, error)
 	GetStatefulSet(ctx context.Context, ns string, statefulSetName string) (*appsv1.StatefulSet, error)
 	ListDeployments(ctx context.Context, ns string) (*appsv1.DeploymentList, error)
 	ListStatefulSets(ctx context.Context, ns string) (*appsv1.StatefulSetList, error)
@@ -232,7 +233,11 @@ func (c *client) ListServices(ctx context.Context, ns string) (*corev1.ServiceLi
 	return c.kc.CoreV1().Services(ns).List(ctx, metav1.ListOptions{})
 }
 
-func (c *client) GetDeployments(ctx context.Context, ns string, deploymentName string) (*appsv1.Deployment, error) {
+func (c *client) GetPod(ctx context.Context, ns string, podName string) (*corev1.Pod, error) {
+	return c.kc.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+}
+
+func (c *client) GetDeployment(ctx context.Context, ns string, deploymentName string) (*appsv1.Deployment, error) {
 	return c.kc.AppsV1().Deployments(ns).Get(ctx, deploymentName, metav1.GetOptions{})
 }
 
