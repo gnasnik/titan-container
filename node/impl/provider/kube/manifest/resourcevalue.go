@@ -1,15 +1,11 @@
 package manifest
 
-import (
-	sdkmath "cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/types"
-)
+import "math/big"
 
 type ResourceValue struct {
-	Val types.Int
+	Val *big.Int
 }
 
 func NewResourceValue(v uint64) ResourceValue {
-	val := sdkmath.NewIntFromUint64(v)
-	return ResourceValue{Val: val}
+	return ResourceValue{Val: big.NewInt(int64(v))}
 }

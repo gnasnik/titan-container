@@ -3,10 +3,12 @@ package kube
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
+
 	"github.com/Filecoin-Titan/titan-container/node/config"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	logging "github.com/ipfs/go-log/v2"
-	"io"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -23,7 +25,6 @@ import (
 	executil "k8s.io/client-go/util/exec"
 	"k8s.io/client-go/util/flowcontrol"
 	metricsclient "k8s.io/metrics/pkg/client/clientset/versioned"
-	"os"
 )
 
 type Client interface {
@@ -31,6 +32,8 @@ type Client interface {
 	GetNS(ctx context.Context, ns string) (*v1.Namespace, error)
 	DeleteNS(ctx context.Context, ns string) error
 	FetchNodeResources(ctx context.Context) (map[string]*nodeResource, error)
+	GetDeployments(ctx context.Context, ns string, deploymentName string) (*appsv1.Deployment, error)
+	GetStatefulSet(ctx context.Context, ns string, statefulSetName string) (*appsv1.StatefulSet, error)
 	ListDeployments(ctx context.Context, ns string) (*appsv1.DeploymentList, error)
 	ListStatefulSets(ctx context.Context, ns string) (*appsv1.StatefulSetList, error)
 	ListServices(ctx context.Context, ns string) (*corev1.ServiceList, error)
@@ -227,6 +230,14 @@ func (c *client) GetNS(ctx context.Context, ns string) (*v1.Namespace, error) {
 
 func (c *client) ListServices(ctx context.Context, ns string) (*corev1.ServiceList, error) {
 	return c.kc.CoreV1().Services(ns).List(ctx, metav1.ListOptions{})
+}
+
+func (c *client) GetDeployments(ctx context.Context, ns string, deploymentName string) (*appsv1.Deployment, error) {
+	return c.kc.AppsV1().Deployments(ns).Get(ctx, deploymentName, metav1.GetOptions{})
+}
+
+func (c *client) GetStatefulSet(ctx context.Context, ns string, statefulSetName string) (*appsv1.StatefulSet, error) {
+	return c.kc.AppsV1().StatefulSets(ns).Get(ctx, statefulSetName, metav1.GetOptions{})
 }
 
 func (c *client) ListDeployments(ctx context.Context, ns string) (*appsv1.DeploymentList, error) {

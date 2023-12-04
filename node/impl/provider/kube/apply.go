@@ -4,8 +4,9 @@ package kube
 
 import (
 	"context"
-	corev1 "k8s.io/api/core/v1"
 	"os"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -77,6 +78,7 @@ func applyDeployment(ctx context.Context, kc kubernetes.Interface, b builder.Dep
 			_, err = kc.AppsV1().Deployments(b.NS()).Create(ctx, obj, metav1.CreateOptions{})
 		}
 	}
+
 	return err
 }
 

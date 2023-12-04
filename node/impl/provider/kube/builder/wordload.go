@@ -3,10 +3,10 @@ package builder
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"strings"
 
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/manifest"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -223,7 +223,7 @@ func computeCommittedResources(factor float64, rv manifest.ResourceValue) manife
 	}
 
 	result := manifest.ResourceValue{
-		Val: sdk.NewInt(int64(committedValue)),
+		Val: big.NewInt(int64(committedValue)),
 	}
 
 	return result

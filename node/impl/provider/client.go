@@ -13,6 +13,7 @@ import (
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/manifest"
 	logging "github.com/ipfs/go-log/v2"
+	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/remotecommand"
@@ -124,6 +125,27 @@ func (c *client) UpdateDeployment(ctx context.Context, deployment *types.Deploym
 		return err
 	} else if !isExist {
 		return fmt.Errorf("deployment %s do not exist", deployment.ID)
+	}
+
+	group := k8sDeployment.ManifestGroup()
+	for _, service := range group.Services {
+		// check service if exist
+		if c.isPersistent(&service) {
+			statefulSet, err := c.kc.GetStatefulSet(ctx, ns, service.Name)
+			if err != nil {
+				return err
+			}
+
+			if !c.checkStatefulSetStorage(service.Resources.Storage, statefulSet.Spec.VolumeClaimTemplates) {
+				return fmt.Errorf("can not change storage size in persistent status")
+			}
+
+		} else {
+			_, err := c.kc.GetDeployments(ctx, ns, service.Name)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	ctx = context.WithValue(ctx, builder.SettingsKey, builder.NewDefaultSettings())
@@ -319,6 +341,34 @@ func (c *client) getServices(ctx context.Context, ns string) ([]*types.Service, 
 		return nil, err
 	}
 	return k8sStatefulSetsToServices(statefulSets)
+}
+
+func (c *client) isPersistent(service *manifest.Service) bool {
+	for i := range service.Resources.Storage {
+		attrVal := service.Resources.Storage[i].Attributes.Find(builder.StorageAttributePersistent)
+		if persistent, _ := attrVal.AsBool(); persistent {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (c *client) checkStatefulSetStorage(storages []*manifest.Storage, pvcs []corev1.PersistentVolumeClaim) bool {
+	if len(storages) != len(pvcs) {
+		return false
+	}
+
+	for i := 0; i < len(storages); i++ {
+		storage := storages[i]
+		pvc := pvcs[i]
+		quantity := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+		if storage.Quantity.Val.Int64() != quantity.Value() {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (c *client) isDeploymentExist(ctx context.Context, ns string) (bool, error) {
