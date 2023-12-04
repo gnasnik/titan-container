@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	"github.com/Filecoin-Titan/titan-container/node/config"
@@ -29,9 +30,10 @@ type Client interface {
 	GetDeployment(ctx context.Context, id types.DeploymentID) (*types.Deployment, error)
 	GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.ServiceLog, error)
 	GetEvents(ctx context.Context, id types.DeploymentID) ([]*types.ServiceEvent, error)
-	GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)
-	AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error
-	DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error
+	GetDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)
+	AddDomain(ctx context.Context, id types.DeploymentID, hostname string) error
+	DeleteDomain(ctx context.Context, id types.DeploymentID, index int64) error
+	ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error
 	Exec(ctx context.Context, id types.DeploymentID, podIndex int, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error)
 }
@@ -392,7 +394,7 @@ func (c *client) isDeploymentExist(ctx context.Context, ns string) (bool, error)
 	return false, nil
 }
 
-func (c *client) GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
+func (c *client) GetDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
@@ -411,7 +413,7 @@ func (c *client) GetDeploymentDomains(ctx context.Context, id types.DeploymentID
 	return out, nil
 }
 
-func (c *client) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
+func (c *client) AddDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
@@ -435,7 +437,7 @@ func (c *client) AddDeploymentDomain(ctx context.Context, id types.DeploymentID,
 	return nil
 }
 
-func (c *client) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
+func (c *client) DeleteDomain(ctx context.Context, id types.DeploymentID, index int64) error {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
@@ -453,6 +455,51 @@ func (c *client) DeleteDeploymentDomain(ctx context.Context, id types.Deployment
 
 	_, err = c.kc.UpdateIngress(ctx, ns, ingress)
 	return nil
+}
+
+func (c *client) ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
+	deploymentID := manifest.DeploymentID{ID: string(id)}
+	ns := builder.DidNS(deploymentID)
+
+	data := map[string][]byte{
+		corev1.TLSPrivateKeyKey: cert.Key,
+		corev1.TLSCertKey:       cert.Cert,
+	}
+
+	secret, err := c.kc.CreateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Host, data)
+	if err != nil {
+		return err
+	}
+
+	return c.updateDomain(ctx, id, cert.Host, secret.Name)
+}
+
+func (c *client) updateDomain(ctx context.Context, id types.DeploymentID, hostname, secretName string) error {
+	deploymentID := manifest.DeploymentID{ID: string(id)}
+	ns := builder.DidNS(deploymentID)
+
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
+	if err != nil {
+		return err
+	}
+
+	newRule := netv1.IngressRule{
+		Host: hostname,
+	}
+
+	if len(ingress.Spec.Rules) == 0 {
+		return errors.New("please config hostname and expose port first")
+	}
+
+	newRule.IngressRuleValue = ingress.Spec.Rules[0].IngressRuleValue
+	ingress.Spec.Rules = append(ingress.Spec.Rules, newRule)
+	ingress.Spec.TLS = append(ingress.Spec.TLS, netv1.IngressTLS{
+		Hosts:      []string{hostname},
+		SecretName: secretName,
+	})
+
+	_, err = c.kc.UpdateIngress(ctx, ns, ingress)
+	return err
 }
 
 func (c *client) Exec(ctx context.Context, id types.DeploymentID, podIndex int, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error) {

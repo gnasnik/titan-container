@@ -67,6 +67,8 @@ type ManagerStruct struct {
 
 		GetStatistics func(p0 context.Context, p1 types.ProviderID) (*types.ResourcesStatistics, error) `perm:"read"`
 
+		ImportCertificate func(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error `perm:"admin"`
+
 		ProviderConnect func(p0 context.Context, p1 string, p2 *types.Provider) error `perm:"admin"`
 
 		SetProperties func(p0 context.Context, p1 *types.Properties) error `perm:"admin"`
@@ -81,23 +83,25 @@ type ManagerStub struct {
 
 type ProviderStruct struct {
 	Internal struct {
-		AddDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 string) error `perm:"admin"`
+		AddDomain func(p0 context.Context, p1 types.DeploymentID, p2 string) error `perm:"admin"`
 
 		CloseDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
 
 		CreateDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
 
-		DeleteDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 int64) error `perm:"admin"`
+		DeleteDomain func(p0 context.Context, p1 types.DeploymentID, p2 int64) error `perm:"admin"`
 
 		GetDeployment func(p0 context.Context, p1 types.DeploymentID) (*types.Deployment, error) `perm:"read"`
 
-		GetDeploymentDomains func(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) `perm:"read"`
+		GetDomains func(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) `perm:"read"`
 
 		GetEvents func(p0 context.Context, p1 types.DeploymentID) ([]*types.ServiceEvent, error) `perm:"read"`
 
 		GetLogs func(p0 context.Context, p1 types.DeploymentID) ([]*types.ServiceLog, error) `perm:"read"`
 
 		GetStatistics func(p0 context.Context) (*types.ResourcesStatistics, error) `perm:"read"`
+
+		ImportCertificate func(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error `perm:"admin"`
 
 		Session func(p0 context.Context) (uuid.UUID, error) `perm:"admin"`
 
@@ -341,6 +345,17 @@ func (s *ManagerStub) GetStatistics(p0 context.Context, p1 types.ProviderID) (*t
 	return nil, ErrNotSupported
 }
 
+func (s *ManagerStruct) ImportCertificate(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
+	if s.Internal.ImportCertificate == nil {
+		return ErrNotSupported
+	}
+	return s.Internal.ImportCertificate(p0, p1, p2)
+}
+
+func (s *ManagerStub) ImportCertificate(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
+	return ErrNotSupported
+}
+
 func (s *ManagerStruct) ProviderConnect(p0 context.Context, p1 string, p2 *types.Provider) error {
 	if s.Internal.ProviderConnect == nil {
 		return ErrNotSupported
@@ -374,14 +389,14 @@ func (s *ManagerStub) UpdateDeployment(p0 context.Context, p1 *types.Deployment)
 	return ErrNotSupported
 }
 
-func (s *ProviderStruct) AddDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
-	if s.Internal.AddDeploymentDomain == nil {
+func (s *ProviderStruct) AddDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
+	if s.Internal.AddDomain == nil {
 		return ErrNotSupported
 	}
-	return s.Internal.AddDeploymentDomain(p0, p1, p2)
+	return s.Internal.AddDomain(p0, p1, p2)
 }
 
-func (s *ProviderStub) AddDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
+func (s *ProviderStub) AddDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
 	return ErrNotSupported
 }
 
@@ -407,14 +422,14 @@ func (s *ProviderStub) CreateDeployment(p0 context.Context, p1 *types.Deployment
 	return ErrNotSupported
 }
 
-func (s *ProviderStruct) DeleteDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
-	if s.Internal.DeleteDeploymentDomain == nil {
+func (s *ProviderStruct) DeleteDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
+	if s.Internal.DeleteDomain == nil {
 		return ErrNotSupported
 	}
-	return s.Internal.DeleteDeploymentDomain(p0, p1, p2)
+	return s.Internal.DeleteDomain(p0, p1, p2)
 }
 
-func (s *ProviderStub) DeleteDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
+func (s *ProviderStub) DeleteDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
 	return ErrNotSupported
 }
 
@@ -429,14 +444,14 @@ func (s *ProviderStub) GetDeployment(p0 context.Context, p1 types.DeploymentID) 
 	return nil, ErrNotSupported
 }
 
-func (s *ProviderStruct) GetDeploymentDomains(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) {
-	if s.Internal.GetDeploymentDomains == nil {
+func (s *ProviderStruct) GetDomains(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) {
+	if s.Internal.GetDomains == nil {
 		return *new([]*types.DeploymentDomain), ErrNotSupported
 	}
-	return s.Internal.GetDeploymentDomains(p0, p1)
+	return s.Internal.GetDomains(p0, p1)
 }
 
-func (s *ProviderStub) GetDeploymentDomains(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) {
+func (s *ProviderStub) GetDomains(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) {
 	return *new([]*types.DeploymentDomain), ErrNotSupported
 }
 
@@ -471,6 +486,17 @@ func (s *ProviderStruct) GetStatistics(p0 context.Context) (*types.ResourcesStat
 
 func (s *ProviderStub) GetStatistics(p0 context.Context) (*types.ResourcesStatistics, error) {
 	return nil, ErrNotSupported
+}
+
+func (s *ProviderStruct) ImportCertificate(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
+	if s.Internal.ImportCertificate == nil {
+		return ErrNotSupported
+	}
+	return s.Internal.ImportCertificate(p0, p1, p2)
+}
+
+func (s *ProviderStub) ImportCertificate(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
+	return ErrNotSupported
 }
 
 func (s *ProviderStruct) Session(p0 context.Context) (uuid.UUID, error) {

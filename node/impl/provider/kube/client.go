@@ -45,7 +45,7 @@ type Client interface {
 	Exec(ctx context.Context, cfgPath, ns, name string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (execResult, error)
 	GetSecret(ctx context.Context, ns string, name string) (*corev1.Secret, error)
-	CreateSecret(ctx context.Context, ns string, name string, data map[string][]byte) (*corev1.Secret, error)
+	CreateSecret(ctx context.Context, st corev1.SecretType, ns string, name string, data map[string][]byte) (*corev1.Secret, error)
 }
 
 type client struct {
@@ -348,12 +348,12 @@ func (c *client) GetSecret(ctx context.Context, ns string, name string) (*v1.Sec
 	return c.kc.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
 }
 
-func (c *client) CreateSecret(ctx context.Context, ns string, name string, data map[string][]byte) (*corev1.Secret, error) {
+func (c *client) CreateSecret(ctx context.Context, st corev1.SecretType, ns string, name string, data map[string][]byte) (*corev1.Secret, error) {
 	return c.kc.CoreV1().Secrets(ns).Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Data: data,
-		Type: corev1.SecretTypeOpaque,
+		Type: st,
 	}, metav1.CreateOptions{})
 }

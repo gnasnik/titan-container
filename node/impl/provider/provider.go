@@ -55,14 +55,18 @@ func (p *Provider) GetEvents(ctx context.Context, id types.DeploymentID) ([]*typ
 	return p.Client.GetEvents(ctx, id)
 }
 
-func (p *Provider) GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
-	return p.Client.GetDeploymentDomains(ctx, id)
+func (p *Provider) GetDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
+	return p.Client.GetDomains(ctx, id)
 }
 
-func (p *Provider) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
-	return p.Client.AddDeploymentDomain(ctx, id, hostname)
+func (p *Provider) AddDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
+	return p.Client.AddDomain(ctx, id, hostname)
 }
 
-func (p *Provider) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
-	return p.Client.DeleteDeploymentDomain(ctx, id, index)
+func (p *Provider) DeleteDomain(ctx context.Context, id types.DeploymentID, index int64) error {
+	return p.Client.DeleteDomain(ctx, id, index)
+}
+
+func (p *Provider) ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
+	return p.Client.ImportCertificate(ctx, id, cert)
 }

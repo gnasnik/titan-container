@@ -24,4 +24,5 @@ type Manager interface {
 	AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error               //perm:admin
 	DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error                //perm:admin
 	GetDeploymentShellEndpoint(ctx context.Context, id types.DeploymentID) (*types.ShellEndpoint, error) //perm:admin
+	ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error         //perm:admin
 }

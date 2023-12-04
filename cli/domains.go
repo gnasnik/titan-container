@@ -13,13 +13,14 @@ var deploymentDomainCmds = &cli.Command{
 	Name:  "domain",
 	Usage: "Manager deployment domains",
 	Subcommands: []*cli.Command{
-		GetDeploymentDomainsCmd,
-		AddDeploymentDomainCmd,
-		DeleteDeploymentDomainCmd,
+		GetDomainsCmd,
+		AddDomainCmd,
+		DeleteDomainCmd,
+		ImportCertificateCmd,
 	},
 }
 
-var GetDeploymentDomainsCmd = &cli.Command{
+var GetDomainsCmd = &cli.Command{
 	Name:  "list",
 	Usage: "display deployment domains",
 	Flags: []cli.Flag{},
@@ -64,7 +65,7 @@ var GetDeploymentDomainsCmd = &cli.Command{
 	},
 }
 
-var AddDeploymentDomainCmd = &cli.Command{
+var AddDomainCmd = &cli.Command{
 	Name:  "add",
 	Usage: "add new deployment domain configuration",
 	Flags: []cli.Flag{
@@ -106,7 +107,7 @@ var AddDeploymentDomainCmd = &cli.Command{
 	},
 }
 
-var DeleteDeploymentDomainCmd = &cli.Command{
+var DeleteDomainCmd = &cli.Command{
 	Name:  "delete",
 	Usage: "delete a deployment domain configuration",
 	Flags: []cli.Flag{
@@ -146,6 +147,70 @@ var DeleteDeploymentDomainCmd = &cli.Command{
 		err = api.DeleteDeploymentDomain(ctx, deploymentID, index)
 		if err != nil {
 			return errors.Errorf("delete index %d: %v", index, err)
+		}
+
+		return nil
+	},
+}
+
+var ImportCertificateCmd = &cli.Command{
+	Name:  "import",
+	Usage: "add domain and tls certificate to deployment",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "deployment-id",
+			Usage:    "the deployment id",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "host",
+			Usage:    "hostname",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "key",
+			Usage:    "Path to private key associated with given certificate",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "cert",
+			Usage:    "Path to PEM encoded public key certificate.",
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		api, closer, err := GetManagerAPI(cctx)
+		if err != nil {
+			return err
+		}
+		defer closer()
+
+		ctx := ReqContext(cctx)
+
+		deploymentID := types.DeploymentID(cctx.String("deployment-id"))
+		if deploymentID == "" {
+			return errors.Errorf("deploymentID empty")
+		}
+
+		certFile, err := os.ReadFile(cctx.String("cert"))
+		if err != nil {
+			return err
+		}
+
+		certKeyFile, err := os.ReadFile(cctx.String("key"))
+		if err != nil {
+			return err
+		}
+
+		cert := &types.Certificate{
+			Host: cctx.String("host"),
+			Key:  certKeyFile,
+			Cert: certFile,
+		}
+
+		err = api.ImportCertificate(ctx, deploymentID, cert)
+		if err != nil {
+			return errors.Errorf("import certificate: %v", err)
 		}
 
 		return nil

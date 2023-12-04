@@ -245,3 +245,9 @@ type ShellResponse struct {
 	ExitCode int    `json:"exit_code"`
 	Message  string `json:"message,omitempty"`
 }
+
+type Certificate struct {
+	Host string
+	Key  []byte
+	Cert []byte
+}

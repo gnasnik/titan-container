@@ -260,7 +260,7 @@ func (m *Manager) GetDeploymentDomains(ctx context.Context, id types.DeploymentI
 		return nil, err
 	}
 
-	domains, err := providerApi.GetDeploymentDomains(ctx, deploy.ID)
+	domains, err := providerApi.GetDomains(ctx, deploy.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID
 		return err
 	}
 
-	return providerApi.AddDeploymentDomain(ctx, deploy.ID, hostname)
+	return providerApi.AddDomain(ctx, deploy.ID, hostname)
 }
 
 func (m *Manager) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
@@ -316,7 +316,7 @@ func (m *Manager) DeleteDeploymentDomain(ctx context.Context, id types.Deploymen
 		return err
 	}
 
-	return providerApi.DeleteDeploymentDomain(ctx, deploy.ID, index)
+	return providerApi.DeleteDomain(ctx, deploy.ID, index)
 }
 
 func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.DeploymentID) (*types.ShellEndpoint, error) {
@@ -341,6 +341,20 @@ func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.Deplo
 	}
 
 	return endpoint, nil
+}
+
+func (m *Manager) ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
+	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	providerApi, err := m.ProviderManager.Get(deploy.ProviderID)
+	if err != nil {
+		return err
+	}
+
+	return providerApi.ImportCertificate(ctx, deploy.ID, cert)
 }
 
 var _ api.Manager = &Manager{}
