@@ -121,6 +121,9 @@ func (m *Manager) CreateDeployment(ctx context.Context, deployment *types.Deploy
 	deployment.State = types.DeploymentStateActive
 	deployment.CreatedAt = time.Now()
 	deployment.UpdatedAt = time.Now()
+	if deployment.Expiration.IsZero() {
+		deployment.Expiration = time.Now().AddDate(0, 1, 0)
+	}
 
 	err = providerApi.CreateDeployment(ctx, deployment)
 	if err != nil {
