@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -19,8 +22,10 @@ import (
 	dockerterm "github.com/moby/term"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"io/ioutil"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/util/term"
+	"path"
 	"sigs.k8s.io/yaml"
 )
 
@@ -36,7 +41,8 @@ var deploymentCmds = &cli.Command{
 		StatusDeployment,
 		UpdateDeployment,
 		ExecuteCmd,
-		deploymentDomainCmds,
+		DomainCmds,
+		CopyFileCmd,
 	},
 }
 
@@ -496,20 +502,26 @@ var ExecuteCmd = &cli.Command{
 			return err
 		}
 
-		query := url.Values{}
-		query.Set("podIndex", podIndex)
-		for index, cmd := range commands {
-			query.Set(fmt.Sprintf("cmd%d", index), cmd)
-		}
-		query.Set("tty", "1")
-		endpoint.RawQuery = query.Encode()
-
 		var stdin io.ReadCloser
 		var stdout io.Writer
 		var stderr io.Writer
 		stdout = os.Stdout
 		stderr = os.Stderr
 		stdin = os.Stdin
+
+		query := url.Values{}
+		query.Set("podIndex", podIndex)
+		for index, cmd := range commands {
+			query.Set(fmt.Sprintf("cmd%d", index), cmd)
+		}
+
+		query.Set("tty", "1")
+		stdinVal := "0"
+		if stdin != nil {
+			stdinVal = "1"
+		}
+		query.Set("stdin", stdinVal)
+		endpoint.RawQuery = query.Encode()
 
 		var tty term.TTY
 		var tsq remotecommand.TerminalSizeQueue
@@ -570,7 +582,7 @@ var ExecuteCmd = &cli.Command{
 			}
 		}()
 		shellFn := func() error {
-			return handleRemoteTerminal(ctx, endpoint.String(), stdin, stdout, stderr, true, terminalResizes)
+			return handleShell(ctx, endpoint.String(), stdin, stdout, stderr, true, terminalResizes)
 		}
 
 		err = tty.Safe(shellFn)
@@ -591,4 +603,195 @@ var ExecuteCmd = &cli.Command{
 
 		return nil
 	},
+}
+
+var CopyFileCmd = &cli.Command{
+	Name:      "cp",
+	Usage:     "Copy files to container",
+	UsageText: "manager deployment cp <deployment-id> <src> <dest> [options]",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:        "pod-index",
+			Usage:       "pod index",
+			DefaultText: "0",
+			Value:       "0",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		api, closer, err := GetManagerAPI(cctx)
+		if err != nil {
+			return err
+		}
+		defer closer()
+
+		ctx := ReqContext(cctx)
+		deploymentID := types.DeploymentID(cctx.Args().First())
+		if deploymentID == "" {
+			return errors.Errorf("deploymentID empty")
+		}
+
+		podIndex := cctx.String("pod-index")
+
+		if len(cctx.Args().Tail()) != 2 {
+			return errors.Errorf("The source path and destination path of the file cannot be empty")
+		}
+
+		args := cctx.Args().Tail()
+		srcPath := args[0]
+		destPath := args[1]
+
+		shellEndpoint, err := api.GetDeploymentShellEndpoint(ctx, deploymentID)
+		if err != nil {
+			return err
+		}
+
+		endpoint, err := url.Parse(fmt.Sprintf("ws://%s", shellEndpoint.Host+shellEndpoint.ShellPath))
+		if err != nil {
+			return err
+		}
+		err = checkDestinationIsDir(cctx, endpoint.String(), podIndex, destPath)
+		if err == nil {
+			destPath = filepath.Join(destPath, filepath.Base(srcPath))
+		}
+
+		reader, writer := io.Pipe()
+		go func(src, dest string, writer io.WriteCloser) {
+			defer writer.Close()
+			err = makeTar(src, dest, writer)
+		}(srcPath, destPath, writer)
+
+		var commands []string
+		commands = append(commands, []string{"tar", "-xvf", "-"}...)
+		//commands = append(commands, []string{"sh", "-c", "cat > " + destPath + ".tar.gz"}...)
+		destFileDir := path.Dir(destPath)
+		if len(destFileDir) > 0 {
+			commands = append(commands, "-C", destFileDir)
+		}
+
+		stdout := os.Stdout
+		stderr := os.Stderr
+
+		query := url.Values{}
+		query.Set("podIndex", podIndex)
+		for index, cmd := range commands {
+			query.Set(fmt.Sprintf("cmd%d", index), cmd)
+		}
+		query.Set("stdin", "1")
+		endpoint.RawQuery = query.Encode()
+
+		var terminalResizes chan remotecommand.TerminalSize
+
+		ctx, cancel := context.WithCancel(cctx.Context)
+		defer cancel()
+
+		err = handleShell(ctx, endpoint.String(), reader, stdout, stderr, false, terminalResizes)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "provider error messsage:\n%v\n", err.Error())
+		}
+
+		return nil
+	},
+}
+
+func checkDestinationIsDir(cctx *cli.Context, wsUrl string, podIndex, destPath string) error {
+	ctx, cancel := context.WithCancel(cctx.Context)
+	defer cancel()
+
+	var commands []string
+	commands = append(commands, []string{"test", "-d", destPath}...)
+
+	reader, writer := io.Pipe()
+	defer writer.Close()
+
+	stdout := bytes.NewBuffer([]byte{})
+	stderr := bytes.NewBuffer([]byte{})
+
+	endpoint, err := url.Parse(wsUrl)
+	if err != nil {
+		return err
+	}
+
+	query := url.Values{}
+	query.Set("podIndex", podIndex)
+	for index, cmd := range commands {
+		query.Set(fmt.Sprintf("cmd%d", index), cmd)
+	}
+	query.Set("stdin", "1")
+	endpoint.RawQuery = query.Encode()
+
+	return handleShell(ctx, endpoint.String(), reader, stdout, stderr, false, nil)
+}
+
+func makeTar(srcPath, destPath string, writer io.Writer) error {
+	// TODO: use compression here?
+	tarWriter := tar.NewWriter(writer)
+	defer tarWriter.Close()
+
+	srcPath = path.Clean(srcPath)
+	destPath = path.Clean(destPath)
+	return recursiveTar(path.Dir(srcPath), path.Base(srcPath), path.Dir(destPath), path.Base(destPath), tarWriter)
+}
+
+func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) error {
+	filepath := path.Join(srcBase, srcFile)
+	stat, err := os.Lstat(filepath)
+	if err != nil {
+		return err
+	}
+	if stat.IsDir() {
+		files, err := ioutil.ReadDir(filepath)
+		if err != nil {
+			return err
+		}
+		if len(files) == 0 {
+			//case empty directory
+			hdr, _ := tar.FileInfoHeader(stat, filepath)
+			hdr.Name = destFile
+			if err := tw.WriteHeader(hdr); err != nil {
+				return err
+			}
+		}
+		for _, f := range files {
+			if err := recursiveTar(srcBase, path.Join(srcFile, f.Name()), destBase, path.Join(destFile, f.Name()), tw); err != nil {
+				return err
+			}
+		}
+		return nil
+	} else if stat.Mode()&os.ModeSymlink != 0 {
+		//case soft link
+		hdr, _ := tar.FileInfoHeader(stat, filepath)
+		target, err := os.Readlink(filepath)
+		if err != nil {
+			return err
+		}
+
+		hdr.Linkname = target
+		hdr.Name = destFile
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+	} else {
+		//case regular file or other file type like pipe
+		hdr, err := tar.FileInfoHeader(stat, filepath)
+		if err != nil {
+			return err
+		}
+		hdr.Name = destFile
+
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+
+		f, err := os.Open(filepath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		if _, err := io.Copy(tw, f); err != nil {
+			return err
+		}
+		return f.Close()
+	}
+	return nil
 }

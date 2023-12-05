@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-func handleRemoteTerminal(ctx context.Context, connUrl string,
+func handleShell(ctx context.Context, connUrl string,
 	stdin io.ReadCloser,
 	stdout io.Writer,
 	stderr io.Writer,
@@ -68,9 +68,10 @@ func handleRemoteTerminal(ctx context.Context, connUrl string,
 
 	if stdin != nil {
 		stdinWriter := cliutil.NewWsWriterWrapper(conn, types.ShellCodeStdin, l)
+		eofWriter := cliutil.NewWsWriterWrapper(conn, types.ShellCodeEOF, l)
 		// This goroutine is orphaned. There is no universal way to cancel a read from stdin
 		// at this time
-		go handleStdin(subctx, stdin, stdinWriter, saveError)
+		go handleStdin(subctx, stdin, stdinWriter, eofWriter, saveError)
 	}
 
 	if tty && terminalResize != nil {
@@ -145,11 +146,16 @@ loop:
 	return connectionError
 }
 
-func handleStdin(ctx context.Context, input io.Reader, output io.Writer, saveError func(string, error)) {
+func handleStdin(ctx context.Context, input io.Reader, output, eofWriter io.Writer, saveError func(string, error)) {
 	data := make([]byte, 4096)
 
 	for {
 		n, err := input.Read(data)
+		if err == io.EOF {
+			eofWriter.Write([]byte(err.Error()))
+			return
+		}
+
 		if err != nil {
 			saveError("reading from stdin", err)
 			return
@@ -190,18 +196,18 @@ func handleTerminalResize(ctx context.Context, wg *sync.WaitGroup, input <-chan 
 		buf.Reset()
 		err := binary.Write(buf, binary.BigEndian, size.Width)
 		if err != nil {
-			saveError("encoding handleRemoteTerminal size width", err)
+			saveError("encoding handleShell size width", err)
 			return
 		}
 		err = binary.Write(buf, binary.BigEndian, size.Height)
 		if err != nil {
-			saveError("encoding handleRemoteTerminal size height", err)
+			saveError("encoding handleShell size height", err)
 			return
 		}
 
 		_, err = output.Write((buf).Bytes())
 		if err != nil {
-			saveError("sending handleRemoteTerminal size to remote", err)
+			saveError("sending handleShell size to remote", err)
 			return
 		}
 	}

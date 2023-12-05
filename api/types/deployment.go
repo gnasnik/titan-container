@@ -235,6 +235,7 @@ const (
 	ShellCodeFailure        = 103
 	ShellCodeStdin          = 104
 	ShellCodeTerminalResize = 105
+	ShellCodeEOF            = 106
 )
 
 type ExecResult struct {

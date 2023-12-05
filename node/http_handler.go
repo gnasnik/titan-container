@@ -46,19 +46,16 @@ func (w *WebsocketHandler) ShellHandler() http.HandlerFunc {
 		id := path.Base(req.URL.Path)
 
 		upgrader := websocket.Upgrader{
-			ReadBufferSize:  0,
-			WriteBufferSize: 0,
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
 		}
 
 		params := req.URL.Query()
-
-		isTty := false
-		connectStdin := true
-
 		tty := params.Get("tty")
-		if len(tty) > 0 {
-			isTty = tty == "1"
-		}
+		isTty := tty == "1"
+
+		stdin := params.Get("stdin")
+		connectStdin := stdin == "1"
 
 		conn, err := upgrader.Upgrade(writer, req, nil)
 		if err != nil {
@@ -113,10 +110,11 @@ func (w *WebsocketHandler) ShellHandler() http.HandlerFunc {
 		wg.Add(1)
 		go shellPingHandler(subctx, wg, conn)
 
-		var stdinForExec io.Reader
+		var stdinForExec io.ReadCloser
 		if connectStdin {
 			stdinForExec = stdinPipeIn
 		}
+
 		result, err := w.Client.Exec(subctx, types.DeploymentID(id), podIndex, stdinForExec, stdout, stderr, command, isTty, tsq)
 		subcancel()
 
@@ -174,7 +172,7 @@ func shellPingHandler(ctx context.Context, wg *sync.WaitGroup, ws *websocket.Con
 	}
 }
 
-func websocketHandler(wg *sync.WaitGroup, conn *websocket.Conn, stdout io.Writer, terminalSizeUpdate chan<- remotecommand.TerminalSize) {
+func websocketHandler(wg *sync.WaitGroup, conn *websocket.Conn, stdout io.WriteCloser, terminalSizeUpdate chan<- remotecommand.TerminalSize) {
 	defer wg.Done()
 
 	for {
@@ -196,6 +194,11 @@ func websocketHandler(wg *sync.WaitGroup, conn *websocket.Conn, stdout io.Writer
 		switch msgID {
 		case types.ShellCodeStdin:
 			_, err := stdout.Write(msg)
+			if err != nil {
+				return
+			}
+		case types.ShellCodeEOF:
+			err = stdout.Close()
 			if err != nil {
 				return
 			}

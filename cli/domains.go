@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-var deploymentDomainCmds = &cli.Command{
+var DomainCmds = &cli.Command{
 	Name:  "domain",
 	Usage: "Manager deployment domains",
 	Subcommands: []*cli.Command{

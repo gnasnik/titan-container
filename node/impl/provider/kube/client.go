@@ -3,21 +3,18 @@ package kube
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
-
 	"github.com/Filecoin-Titan/titan-container/node/config"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	logging "github.com/ipfs/go-log/v2"
+	"io"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -25,6 +22,7 @@ import (
 	executil "k8s.io/client-go/util/exec"
 	"k8s.io/client-go/util/flowcontrol"
 	metricsclient "k8s.io/metrics/pkg/client/clientset/versioned"
+	"os"
 )
 
 type Client interface {
@@ -43,7 +41,7 @@ type Client interface {
 	Events(ctx context.Context, ns string, opts metav1.ListOptions) (*corev1.EventList, error)
 	GetIngress(ctx context.Context, ns string, hostname string) (*netv1.Ingress, error)
 	UpdateIngress(ctx context.Context, ns string, ingress *netv1.Ingress) (*netv1.Ingress, error)
-	Exec(ctx context.Context, cfgPath, ns, name string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
+	Exec(ctx context.Context, cfgPath, ns, container, podName string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (execResult, error)
 	GetSecret(ctx context.Context, ns string, name string) (*corev1.Secret, error)
 	CreateSecret(ctx context.Context, st corev1.SecretType, ns string, name string, data map[string][]byte) (*corev1.Secret, error)
@@ -274,34 +272,23 @@ func (c *client) UpdateIngress(ctx context.Context, ns string, ingress *netv1.In
 	return c.kc.NetworkingV1().Ingresses(ns).Update(ctx, ingress, metav1.UpdateOptions{})
 }
 
-func (c *client) Exec(ctx context.Context, cfgPath, ns, name string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
+func (c *client) Exec(ctx context.Context, cfgPath, ns, container, podName string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 	terminalSizeQueue remotecommand.TerminalSizeQueue) (execResult, error) {
-	pod, err := c.kc.CoreV1().Pods(ns).Get(ctx, name, metav1.GetOptions{})
+	pod, err := c.kc.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return execResult{exitCode: 0}, err
 	}
-
-	groupVersion := schema.GroupVersion{Group: "api", Version: "v1"}
-	myScheme := runtime.NewScheme()
-	err = corev1.AddToScheme(myScheme)
-	if err != nil {
-		return execResult{exitCode: 0}, err
-	}
-
-	myParameterCodec := runtime.NewParameterCodec(myScheme)
-	myScheme.AddKnownTypes(groupVersion, &corev1.PodExecOptions{})
 
 	kubeConfig, err := openKubeConfig(cfgPath)
 	if err != nil {
 		return execResult{exitCode: 0}, err
 	}
 
-	kubeConfig.GroupVersion = &groupVersion
-	codecFactory := serializer.NewCodecFactory(myScheme)
-	negotiatedSerializer := runtime.NegotiatedSerializer(codecFactory)
-	kubeConfig.NegotiatedSerializer = negotiatedSerializer
+	if err := setKubernetesDefaults(kubeConfig); err != nil {
+		return execResult{exitCode: 0}, fmt.Errorf("%w: failed set KubernetesDefaults", err)
+	}
 
-	kubeRestClient, err := restclient.RESTClientFor(kubeConfig)
+	restClient, err := restclient.RESTClientFor(kubeConfig)
 	if err != nil {
 		return execResult{exitCode: 0}, fmt.Errorf("%w: failed getting REST client", err)
 	}
@@ -310,15 +297,20 @@ func (c *client) Exec(ctx context.Context, cfgPath, ns, name string, stdin io.Re
 		stderr = nil
 	}
 
-	podOptions := &corev1.PodExecOptions{
-		Command: cmd,
-		Stdin:   stdin != nil,
-		Stdout:  stdout != nil,
-		Stderr:  stderr != nil,
-		TTY:     tty,
-	}
+	request := restClient.Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(ns).
+		SubResource("exec")
+	request.VersionedParams(&corev1.PodExecOptions{
+		Container: container,
+		Command:   cmd,
+		Stdin:     stdin != nil,
+		Stdout:    stdout != nil,
+		Stderr:    stderr != nil,
+		TTY:       tty,
+	}, scheme.ParameterCodec)
 
-	request := kubeRestClient.Post().Resource("pods").Name(name).Namespace(ns).SubResource("exec").VersionedParams(podOptions, myParameterCodec)
 	exec, err := remotecommand.NewSPDYExecutor(kubeConfig, "POST", request.URL())
 	if err != nil {
 		c.log.Errorf("remotecommand.NewSPDYExecutor error: %v", err)
@@ -347,6 +339,22 @@ func (c *client) Exec(ctx context.Context, cfgPath, ns, name string, stdin io.Re
 	}
 
 	return execResult{exitCode: 0}, nil
+}
+
+func setKubernetesDefaults(config *rest.Config) error {
+	// TODO remove this hack.  This is allowing the GetOptions to be serialized.
+	config.GroupVersion = &schema.GroupVersion{Group: "", Version: "v1"}
+
+	if config.APIPath == "" {
+		config.APIPath = "/api"
+	}
+	if config.NegotiatedSerializer == nil {
+		// This codec factory ensures the resources are not converted. Therefore, resources
+		// will not be round-tripped through internal versions. Defaulting does not happen
+		// on the client.
+		config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	}
+	return rest.SetKubernetesDefaults(config)
 }
 
 func (c *client) GetSecret(ctx context.Context, ns string, name string) (*v1.Secret, error) {

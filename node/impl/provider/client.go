@@ -14,7 +14,6 @@ import (
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/manifest"
 	logging "github.com/ipfs/go-log/v2"
-	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/remotecommand"
@@ -517,11 +516,20 @@ func (c *client) Exec(ctx context.Context, id types.DeploymentID, podIndex int, 
 	}
 
 	if len(pods.Items) < podIndex {
-		return types.ExecResult{Code: 0}, errors.New("pod index not exist")
+		return types.ExecResult{Code: 0}, fmt.Errorf("pod index %d not exist", podIndex)
 	}
 
-	podName := pods.Items[podIndex].Name
-	result, err := c.kc.Exec(ctx, c.providerCfg.KubeConfigPath, ns, podName, stdin, stdout, stderr, cmd, tty, terminalSizeQueue)
+	pod := pods.Items[podIndex]
+
+	// this should never happen, but just in case
+	if len(pod.Spec.Containers) == 0 {
+		return types.ExecResult{Code: 0}, fmt.Errorf("pod %s/%s does not have any containers", pod.Namespace, pod.Name)
+	}
+
+	// pick the first container as per existing behavior
+	containerName := pod.Spec.Containers[0].Name
+
+	result, err := c.kc.Exec(ctx, c.providerCfg.KubeConfigPath, ns, containerName, pod.Name, stdin, stdout, stderr, cmd, tty, terminalSizeQueue)
 
 	return types.ExecResult{Code: result.ExitCode()}, err
 
