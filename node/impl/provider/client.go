@@ -466,7 +466,18 @@ func (c *client) ImportCertificate(ctx context.Context, id types.DeploymentID, c
 		corev1.TLSCertKey:       cert.Cert,
 	}
 
-	secret, err := c.kc.CreateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Host, data)
+	var (
+		err    error
+		secret *corev1.Secret
+	)
+
+	_, err = c.kc.GetSecret(ctx, ns, cert.Host)
+	if err == nil {
+		secret, err = c.kc.UpdateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Host, data)
+	} else {
+		secret, err = c.kc.CreateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Host, data)
+	}
+
 	if err != nil {
 		return err
 	}

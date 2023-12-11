@@ -45,6 +45,7 @@ type Client interface {
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (execResult, error)
 	GetSecret(ctx context.Context, ns string, name string) (*corev1.Secret, error)
 	CreateSecret(ctx context.Context, st corev1.SecretType, ns string, name string, data map[string][]byte) (*corev1.Secret, error)
+	UpdateSecret(ctx context.Context, st corev1.SecretType, ns string, name string, data map[string][]byte) (*corev1.Secret, error)
 }
 
 type client struct {
@@ -363,10 +364,16 @@ func (c *client) GetSecret(ctx context.Context, ns string, name string) (*v1.Sec
 
 func (c *client) CreateSecret(ctx context.Context, st corev1.SecretType, ns string, name string, data map[string][]byte) (*corev1.Secret, error) {
 	return c.kc.CoreV1().Secrets(ns).Create(ctx, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Data: data,
-		Type: st,
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Data:       data,
+		Type:       st,
 	}, metav1.CreateOptions{})
+}
+
+func (c *client) UpdateSecret(ctx context.Context, st corev1.SecretType, ns string, name string, data map[string][]byte) (*corev1.Secret, error) {
+	return c.kc.CoreV1().Secrets(ns).Update(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Data:       data,
+		Type:       st,
+	}, metav1.UpdateOptions{})
 }
