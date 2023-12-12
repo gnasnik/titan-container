@@ -29,7 +29,8 @@ type Client interface {
 	Deploy(ctx context.Context, deployment builder.IClusterDeployment) error
 	GetNS(ctx context.Context, ns string) (*v1.Namespace, error)
 	DeleteNS(ctx context.Context, ns string) error
-	FetchNodeResources(ctx context.Context) (map[string]*nodeResource, error)
+	FetchAllNodeResources(ctx context.Context) (map[string]*nodeResource, error)
+	FetchNodeResource(ctx context.Context, nodeName string) (*nodeResource, error)
 	GetPod(ctx context.Context, ns string, podName string) (*corev1.Pod, error)
 	GetDeployment(ctx context.Context, ns string, deploymentName string) (*appsv1.Deployment, error)
 	GetStatefulSet(ctx context.Context, ns string, statefulSetName string) (*appsv1.StatefulSet, error)

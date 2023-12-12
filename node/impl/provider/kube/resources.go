@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/tools/pager"
 )
 
-func (c *client) FetchNodeResources(ctx context.Context) (map[string]*nodeResource, error) {
+func (c *client) FetchAllNodeResources(ctx context.Context) (map[string]*nodeResource, error) {
 	nodes, err := c.kc.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -18,6 +18,7 @@ func (c *client) FetchNodeResources(ctx context.Context) (map[string]*nodeResour
 
 	podsClient := c.kc.CoreV1().Pods(metav1.NamespaceAll)
 	podsPager := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+		// opts.FieldSelector = "spec.nodeName=" + nodeName
 		return podsClient.List(ctx, opts)
 	})
 
@@ -31,7 +32,41 @@ func (c *client) FetchNodeResources(ctx context.Context) (map[string]*nodeResour
 	}
 
 	// Go over each pod and sum the resources for it into the value for the pod it lives on
-	err = podsPager.EachListItem(ctx, metav1.ListOptions{}, func(obj runtime.Object) error {
+	err = c.foreachPodsResource(ctx, podsPager, nodeResources)
+	if err != nil {
+		return nil, err
+	}
+
+	return nodeResources, nil
+}
+
+func (c *client) FetchNodeResource(ctx context.Context, nodeName string) (*nodeResource, error) {
+	node, err := c.kc.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	podsClient := c.kc.CoreV1().Pods(metav1.NamespaceAll)
+	podsPager := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+		opts.FieldSelector = "spec.nodeName=" + nodeName
+		return podsClient.List(ctx, opts)
+	})
+
+	nodeResources := make(map[string]*nodeResource)
+	nodeResources[node.Name] = newNodeResource(&node.Status)
+
+	// Go over each pod and sum the resources for it into the value for the pod it lives on
+	err = c.foreachPodsResource(ctx, podsPager, nodeResources)
+	if err != nil {
+		return nil, err
+	}
+
+	return nodeResources[node.Name], nil
+}
+
+func (c *client) foreachPodsResource(ctx context.Context, podsPage *pager.ListPager, nodeResources map[string]*nodeResource) error {
+	// Go over each pod and sum the resources for it into the value for the pod it lives on
+	return podsPage.EachListItem(ctx, metav1.ListOptions{}, func(obj runtime.Object) error {
 		pod := obj.(*corev1.Pod)
 		nodeName := pod.Spec.NodeName
 
@@ -52,12 +87,6 @@ func (c *client) FetchNodeResources(ctx context.Context) (map[string]*nodeResour
 
 		return nil
 	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return nodeResources, nil
 }
 
 func (c *client) nodeIsActive(node corev1.Node) bool {

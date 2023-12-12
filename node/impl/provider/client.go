@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/Filecoin-Titan/titan-container/api/types"
@@ -22,7 +23,9 @@ import (
 var log = logging.Logger("provider")
 
 type Client interface {
+	// ListNodes()
 	GetStatistics(ctx context.Context) (*types.ResourcesStatistics, error)
+	GetNodeResources(ctx context.Context, nodeName string) (*types.ResourcesStatistics, error)
 	CreateDeployment(ctx context.Context, deployment *types.Deployment) error
 	UpdateDeployment(ctx context.Context, deployment *types.Deployment) error
 	CloseDeployment(ctx context.Context, deployment *types.Deployment) error
@@ -53,7 +56,7 @@ func NewClient(config *config.ProviderCfg) (Client, error) {
 }
 
 func (c *client) GetStatistics(ctx context.Context) (*types.ResourcesStatistics, error) {
-	nodeResources, err := c.kc.FetchNodeResources(ctx)
+	nodeResources, err := c.kc.FetchAllNodeResources(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -76,6 +79,32 @@ func (c *client) GetStatistics(ctx context.Context) (*types.ResourcesStatistics,
 		statistics.Storage.Available += uint64(node.EphemeralStorage.Allocatable.AsApproximateFloat64())
 		statistics.Storage.Active += uint64(node.EphemeralStorage.Allocated.AsApproximateFloat64())
 	}
+
+	statistics.CPUCores.Available = statistics.CPUCores.Available - statistics.CPUCores.Active
+	statistics.Memory.Available = statistics.Memory.Available - statistics.Memory.Active
+	statistics.Storage.Available = statistics.Storage.Available - statistics.Storage.Active
+
+	return statistics, nil
+}
+
+func (c *client) GetNodeResources(ctx context.Context, nodeName string) (*types.ResourcesStatistics, error) {
+	node, err := c.kc.FetchNodeResource(ctx, nodeName)
+	if err != nil {
+		return nil, err
+	}
+
+	statistics := &types.ResourcesStatistics{}
+	statistics.CPUCores.MaxCPUCores += node.CPU.Capacity.AsApproximateFloat64()
+	statistics.CPUCores.Available += node.CPU.Allocatable.AsApproximateFloat64()
+	statistics.CPUCores.Active += node.CPU.Allocated.AsApproximateFloat64()
+
+	statistics.Memory.MaxMemory += uint64(node.Memory.Capacity.AsApproximateFloat64())
+	statistics.Memory.Available += uint64(node.Memory.Allocatable.AsApproximateFloat64())
+	statistics.Memory.Active += uint64(node.Memory.Allocated.AsApproximateFloat64())
+
+	statistics.Storage.MaxStorage += uint64(node.EphemeralStorage.Capacity.AsApproximateFloat64())
+	statistics.Storage.Available += uint64(node.EphemeralStorage.Allocatable.AsApproximateFloat64())
+	statistics.Storage.Active += uint64(node.EphemeralStorage.Allocated.AsApproximateFloat64())
 
 	statistics.CPUCores.Available = statistics.CPUCores.Available - statistics.CPUCores.Active
 	statistics.Memory.Available = statistics.Memory.Available - statistics.Memory.Active
