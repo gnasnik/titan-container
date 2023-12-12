@@ -216,6 +216,7 @@ var DeploymentList = &cli.Command{
 
 		tw := tablewriter.New(
 			tablewriter.Col("ID"),
+			tablewriter.Col("Name"),
 			tablewriter.Col("Image"),
 			tablewriter.Col("State"),
 			tablewriter.Col("Authority"),
@@ -268,6 +269,7 @@ var DeploymentList = &cli.Command{
 
 				m := map[string]interface{}{
 					"ID":          deployment.ID,
+					"Name":        deployment.Name,
 					"Image":       service.Image,
 					"State":       types.DeploymentStateString(state),
 					"Authority":   deployment.Authority,
