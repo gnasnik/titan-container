@@ -166,10 +166,18 @@ func (m *Manager) UpdateDeployment(ctx context.Context, deployment *types.Deploy
 		return err
 	}
 
+	if len(deployment.Name) == 0 {
+		deployment.Name = deploy.Name
+	}
+
+	if deployment.Expiration.IsZero() {
+		deployment.Expiration = deploy.Expiration
+	}
+
+	deployment.CreatedAt = deploy.CreatedAt
+	deployment.UpdatedAt = time.Now()
+
 	for _, service := range deployment.Services {
-		if service.Name == "" {
-			service.Name = deployment.Name
-		}
 		service.DeploymentID = deployment.ID
 		service.CreatedAt = time.Now()
 		service.UpdatedAt = time.Now()

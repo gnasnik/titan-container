@@ -44,12 +44,20 @@ func ClusterDeploymentFromDeployment(deployment *types.Deployment) (builder.IClu
 }
 
 func deploymentToManifestGroup(deployment *types.Deployment) (*manifest.Group, error) {
+	if len(deployment.Name) == 0 {
+		return nil, fmt.Errorf("Deployment.Name can not empty")
+	}
+
 	if len(deployment.Services) == 0 {
 		return nil, fmt.Errorf("deployment service can not empty")
 	}
 
 	services := make([]manifest.Service, 0, len(deployment.Services))
-	for _, service := range deployment.Services {
+	for index, service := range deployment.Services {
+		if len(service.Name) == 0 {
+			service.Name = fmt.Sprintf("%s-%d", deployment.Name, index)
+		}
+
 		s, err := serviceToManifestService(service, deployment.ProviderExposeIP)
 		if err != nil {
 			return nil, err
@@ -64,7 +72,7 @@ func serviceToManifestService(service *types.Service, exposeIP string) (manifest
 	if len(service.Image) == 0 {
 		return manifest.Service{}, fmt.Errorf("service image can not empty")
 	}
-	serviceName := getServiceName(service)
+
 	resource := resourceToManifestResource(&service.ComputeResources)
 	exposes, err := exposesFromIPAndPorts(exposeIP, service.Ports)
 	if err != nil {
@@ -72,7 +80,7 @@ func serviceToManifestService(service *types.Service, exposeIP string) (manifest
 	}
 
 	s := manifest.Service{
-		Name:      serviceName,
+		Name:      service.Name,
 		Image:     service.Image,
 		Args:      service.Arguments,
 		Env:       envToManifestEnv(service.Env),
@@ -108,17 +116,6 @@ func envToManifestEnv(serviceEnv types.Env) []string {
 		envs = append(envs, env)
 	}
 	return envs
-}
-
-func getServiceName(service *types.Service) string {
-	if len(service.Name) > 0 {
-		return service.Name
-	}
-
-	names := strings.Split(service.Image, "/")
-	names = strings.Split(names[len(names)-1], ":")
-	serviceName := names[0]
-	return serviceName
 }
 
 func resourceToManifestResource(resource *types.ComputeResources) manifest.ResourceUnits {
