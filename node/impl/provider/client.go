@@ -479,8 +479,23 @@ func (c *client) DeleteDomain(ctx context.Context, id types.DeploymentID, index 
 		return nil
 	}
 
+	toRemoved := ingress.Spec.Rules[index-1]
+
 	newRules := append(ingress.Spec.Rules[:index-1], ingress.Spec.Rules[index:]...)
 	ingress.Spec.Rules = newRules
+
+	for _, tls := range ingress.Spec.TLS {
+		for _, host := range tls.Hosts {
+			if host != toRemoved.Host {
+				continue
+			}
+
+			err = c.kc.DeleteSecret(ctx, ns, host)
+			if err != nil {
+				log.Errorf("delete secret: %v", err)
+			}
+		}
+	}
 
 	_, err = c.kc.UpdateIngress(ctx, ns, ingress)
 	return nil

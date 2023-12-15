@@ -47,6 +47,7 @@ type Client interface {
 	GetSecret(ctx context.Context, ns string, name string) (*corev1.Secret, error)
 	CreateSecret(ctx context.Context, st corev1.SecretType, ns string, name string, data map[string][]byte) (*corev1.Secret, error)
 	UpdateSecret(ctx context.Context, st corev1.SecretType, ns string, name string, data map[string][]byte) (*corev1.Secret, error)
+	DeleteSecret(ctx context.Context, ns string, name string) error
 }
 
 type client struct {
@@ -377,4 +378,8 @@ func (c *client) UpdateSecret(ctx context.Context, st corev1.SecretType, ns stri
 		Data:       data,
 		Type:       st,
 	}, metav1.UpdateOptions{})
+}
+
+func (c *client) DeleteSecret(ctx context.Context, ns string, name string) error {
+	return c.kc.CoreV1().Secrets(ns).Delete(ctx, name, metav1.DeleteOptions{})
 }
