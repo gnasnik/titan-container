@@ -69,19 +69,21 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 			s.arguments as 'service.arguments', 
 			s.error_message  as 'service.error_message',
 			p.host_uri  as 'provider_expose_ip'
-		FROM deployments d LEFT JOIN services s ON d.id = s.deployment_id LEFT JOIN providers p ON d.provider_id = p.id`
+		FROM (%s) as d LEFT JOIN services s ON d.id = s.deployment_id LEFT JOIN providers p ON d.provider_id = p.id`
+
+	subQry := `SELECT * from deployments`
 
 	var condition []string
 	if option.DeploymentID != "" {
-		condition = append(condition, fmt.Sprintf(`d.id = '%s'`, option.DeploymentID))
+		condition = append(condition, fmt.Sprintf(`id = '%s'`, option.DeploymentID))
 	}
 
 	if option.Owner != "" {
-		condition = append(condition, fmt.Sprintf(`d.owner = '%s'`, option.Owner))
+		condition = append(condition, fmt.Sprintf(`owner = '%s'`, option.Owner))
 	}
 
 	if option.ProviderID != "" {
-		condition = append(condition, fmt.Sprintf(`d.provider_id = '%s'`, option.ProviderID))
+		condition = append(condition, fmt.Sprintf(`provider_id = '%s'`, option.ProviderID))
 	}
 
 	if len(option.State) > 0 {
@@ -89,14 +91,14 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 		for _, s := range option.State {
 			states = append(states, strconv.Itoa(int(s)))
 		}
-		condition = append(condition, fmt.Sprintf(`d.state in (%s)`, strings.Join(states, ",")))
+		condition = append(condition, fmt.Sprintf(`state in (%s)`, strings.Join(states, ",")))
 	} else {
-		condition = append(condition, fmt.Sprintf(`d.state <> 3`))
+		condition = append(condition, fmt.Sprintf(`state <> 3`))
 	}
 
 	if len(condition) > 0 {
-		qry += ` WHERE `
-		qry += strings.Join(condition, ` AND `)
+		subQry += ` WHERE `
+		subQry += strings.Join(condition, ` AND `)
 	}
 
 	if option.Page <= 0 {
@@ -109,8 +111,11 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 
 	offset := (option.Page - 1) * option.Size
 	limit := option.Size
-	qry += fmt.Sprintf(" ORDER BY created_at DESC LIMIT %d OFFSET %d", limit, offset)
+	subQry += fmt.Sprintf(" ORDER BY created_at DESC LIMIT %d OFFSET %d", limit, offset)
 
+	qry = fmt.Sprintf(qry, subQry)
+
+	log.Debug(qry)
 	err := m.db.SelectContext(ctx, &ds, qry)
 	if err != nil {
 		return nil, err
