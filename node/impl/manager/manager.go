@@ -24,6 +24,10 @@ var log = logging.Logger("manager")
 
 const shellPath = "/deployment/shell"
 
+var (
+	ErrDeploymentNotFound = errors.New("deployment not found")
+)
+
 // Manager represents a manager service in a cloud computing system.
 type Manager struct {
 	fx.In
@@ -254,6 +258,10 @@ const (
 
 func (m *Manager) GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error) {
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if errors.As(err, sql.ErrNoRows) {
+		return nil, ErrDeploymentNotFound
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -301,6 +309,10 @@ func includeIP(hostname string, expectedIP string) bool {
 
 func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if errors.As(err, sql.ErrNoRows) {
+		return ErrDeploymentNotFound
+	}
+
 	if err != nil {
 		return err
 	}
@@ -315,6 +327,10 @@ func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID
 
 func (m *Manager) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if errors.As(err, sql.ErrNoRows) {
+		return ErrDeploymentNotFound
+	}
+
 	if err != nil {
 		return err
 	}
@@ -329,6 +345,10 @@ func (m *Manager) DeleteDeploymentDomain(ctx context.Context, id types.Deploymen
 
 func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.DeploymentID) (*types.ShellEndpoint, error) {
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if errors.As(err, sql.ErrNoRows) {
+		return nil, ErrDeploymentNotFound
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -353,6 +373,10 @@ func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.Deplo
 
 func (m *Manager) ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if errors.As(err, sql.ErrNoRows) {
+		return ErrDeploymentNotFound
+	}
+
 	if err != nil {
 		return err
 	}
