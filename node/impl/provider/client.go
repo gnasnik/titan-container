@@ -34,7 +34,7 @@ type Client interface {
 	GetEvents(ctx context.Context, id types.DeploymentID) ([]*types.ServiceEvent, error)
 	GetDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)
 	AddDomain(ctx context.Context, id types.DeploymentID, hostname string) error
-	DeleteDomain(ctx context.Context, id types.DeploymentID, index int64) error
+	DeleteDomain(ctx context.Context, id types.DeploymentID, hostname string) error
 	ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error
 	Exec(ctx context.Context, id types.DeploymentID, podIndex int, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error)
@@ -435,7 +435,7 @@ func (c *client) GetDomains(ctx context.Context, id types.DeploymentID) ([]*type
 
 	for _, rule := range ingress.Spec.Rules {
 		out = append(out, &types.DeploymentDomain{
-			Host: rule.Host,
+			Name: rule.Host,
 		})
 	}
 
@@ -466,7 +466,7 @@ func (c *client) AddDomain(ctx context.Context, id types.DeploymentID, hostname 
 	return nil
 }
 
-func (c *client) DeleteDomain(ctx context.Context, id types.DeploymentID, index int64) error {
+func (c *client) DeleteDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
@@ -475,18 +475,19 @@ func (c *client) DeleteDomain(ctx context.Context, id types.DeploymentID, index 
 		return err
 	}
 
-	if len(ingress.Spec.Rules) == 0 || len(ingress.Spec.Rules) < int(index) {
-		return nil
+	var newRules []netv1.IngressRule
+	for _, rule := range ingress.Spec.Rules {
+		if rule.Host == hostname {
+			continue
+		}
+		newRules = append(newRules, rule)
 	}
 
-	toRemoved := ingress.Spec.Rules[index-1]
-
-	newRules := append(ingress.Spec.Rules[:index-1], ingress.Spec.Rules[index:]...)
 	ingress.Spec.Rules = newRules
 
 	for _, tls := range ingress.Spec.TLS {
 		for _, host := range tls.Hosts {
-			if host != toRemoved.Host {
+			if host != hostname {
 				continue
 			}
 

@@ -26,6 +26,7 @@ const shellPath = "/deployment/shell"
 
 var (
 	ErrDeploymentNotFound = errors.New("deployment not found")
+	ErrDomainAlreadyExist = errors.New("domain already exist")
 )
 
 // Manager represents a manager service in a cloud computing system.
@@ -282,7 +283,7 @@ func (m *Manager) GetDeploymentDomains(ctx context.Context, id types.DeploymentI
 	}
 
 	for _, domain := range domains {
-		if includeIP(domain.Host, provider.HostURI) {
+		if includeIP(domain.Name, provider.HostURI) {
 			domain.State = StateOk
 		} else {
 			domain.State = StateInvalid
@@ -308,8 +309,17 @@ func includeIP(hostname string, expectedIP string) bool {
 }
 
 func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
+	domain, err := m.DB.GetDomain(ctx, hostname)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	if domain != nil && domain.DeploymentID == string(id) {
+		return ErrDomainAlreadyExist
+	}
+
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
-	if errors.As(err, sql.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrDeploymentNotFound
 	}
 
@@ -322,12 +332,22 @@ func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID
 		return err
 	}
 
-	return providerApi.AddDomain(ctx, deploy.ID, hostname)
+	err = providerApi.AddDomain(ctx, deploy.ID, hostname)
+	if err != nil {
+		return err
+	}
+
+	return m.DB.AddDomain(ctx, &types.DeploymentDomain{
+		DeploymentID: string(id),
+		Name:         hostname,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	})
 }
 
-func (m *Manager) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, index int64) error {
+func (m *Manager) DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, domain string) error {
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
-	if errors.As(err, sql.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrDeploymentNotFound
 	}
 
@@ -340,12 +360,22 @@ func (m *Manager) DeleteDeploymentDomain(ctx context.Context, id types.Deploymen
 		return err
 	}
 
-	return providerApi.DeleteDomain(ctx, deploy.ID, index)
+	err = providerApi.DeleteDomain(ctx, deploy.ID, domain)
+	if err != nil {
+		return err
+	}
+
+	err = m.DB.DeleteDomain(ctx, domain)
+	if err != nil {
+		log.Errorf("delete domain: %v", err)
+	}
+
+	return nil
 }
 
 func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.DeploymentID) (*types.ShellEndpoint, error) {
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
-	if errors.As(err, sql.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrDeploymentNotFound
 	}
 
@@ -372,8 +402,17 @@ func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.Deplo
 }
 
 func (m *Manager) ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
+	domain, err := m.DB.GetDomain(ctx, cert.Host)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	if domain != nil && domain.DeploymentID == string(id) {
+		return ErrDomainAlreadyExist
+	}
+
 	deploy, err := m.DB.GetDeploymentById(ctx, id)
-	if errors.As(err, sql.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrDeploymentNotFound
 	}
 
@@ -386,7 +425,17 @@ func (m *Manager) ImportCertificate(ctx context.Context, id types.DeploymentID, 
 		return err
 	}
 
-	return providerApi.ImportCertificate(ctx, deploy.ID, cert)
+	err = providerApi.ImportCertificate(ctx, deploy.ID, cert)
+	if err != nil {
+		return err
+	}
+
+	return m.DB.AddDomain(ctx, &types.DeploymentDomain{
+		DeploymentID: string(id),
+		Name:         cert.Host,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	})
 }
 
 var _ api.Manager = &Manager{}

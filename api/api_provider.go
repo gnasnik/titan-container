@@ -17,7 +17,7 @@ type Provider interface {
 	GetEvents(ctx context.Context, id types.DeploymentID) ([]*types.ServiceEvent, error)         //perm:read
 	GetDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)    //perm:read
 	AddDomain(ctx context.Context, id types.DeploymentID, hostname string) error                 //perm:admin
-	DeleteDomain(ctx context.Context, id types.DeploymentID, index int64) error                  //perm:admin
+	DeleteDomain(ctx context.Context, id types.DeploymentID, hostname string) error              //perm:admin
 	ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error //perm:admin
 
 	Version(context.Context) (Version, error)   //perm:admin

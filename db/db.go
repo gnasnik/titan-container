@@ -2,11 +2,11 @@ package db
 
 import (
 	"context"
-	"embed"
 	_ "embed"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"strings"
 )
 
 var log = logging.Logger("db")
@@ -31,15 +31,17 @@ func SqlDB(dsn string) (*sqlx.DB, error) {
 	return client, nil
 }
 
-//go:embed sql/*.sql
-var createMainDBSQL embed.FS
+//go:embed sql/db.sql
+var createMainDBSQL string
 
 func createAllTables(ctx context.Context, mainDB *sqlx.DB) error {
-	fileNames := []string{"providers", "deployments", "services", "properties"}
+	lines := strings.Split(createMainDBSQL, ";")
 
-	for _, fileName := range fileNames {
-		content, _ := createMainDBSQL.ReadFile("sql/" + fileName + ".sql")
-		if _, err := mainDB.ExecContext(ctx, string(content)); err != nil {
+	for _, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
+		if _, err := mainDB.ExecContext(ctx, line); err != nil {
 			return errors.Errorf("failed to create tables in main DB: %v", err)
 		}
 	}

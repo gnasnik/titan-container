@@ -63,8 +63,8 @@ func (p *Provider) AddDomain(ctx context.Context, id types.DeploymentID, hostnam
 	return p.Client.AddDomain(ctx, id, hostname)
 }
 
-func (p *Provider) DeleteDomain(ctx context.Context, id types.DeploymentID, index int64) error {
-	return p.Client.DeleteDomain(ctx, id, index)
+func (p *Provider) DeleteDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
+	return p.Client.DeleteDomain(ctx, id, hostname)
 }
 
 func (p *Provider) ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {

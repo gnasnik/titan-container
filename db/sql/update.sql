@@ -1,6 +1,0 @@
-ALTER TABLE services ADD UNIQUE INDEX IF NOT EXISTS uniq_deployment_id_image (`deployment_id`, `image`);
-ALTER TABLE services DROP COLUMN IF EXISTS expose_port;
-
-ALTER TABLE services MODIFY COLUMN storage VARCHAR (1024) NOT NULL;
-ALTER TABLE services MODIFY COLUMN env VARCHAR (1024) NOT NULL ;
-ALTER TABLE services MODIFY COLUMN arguments VARCHAR (1024) NOT NULL ;

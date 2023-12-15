@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"os"
-	"strconv"
 )
 
 var DomainCmds = &cli.Command{
@@ -55,7 +54,7 @@ var GetDomainsCmd = &cli.Command{
 		for index, domain := range domains {
 			m := map[string]interface{}{
 				"ID":       index + 1,
-				"Hostname": domain.Host,
+				"Hostname": domain.Name,
 				"State":    domain.State,
 			}
 			tw.Write(m)
@@ -135,18 +134,10 @@ var DeleteDomainCmd = &cli.Command{
 			return errors.Errorf("deploymentID empty")
 		}
 
-		index, err := strconv.ParseInt(cctx.Args().First(), 10, 64)
+		domain := cctx.Args().First()
+		err = api.DeleteDeploymentDomain(ctx, deploymentID, domain)
 		if err != nil {
-			return err
-		}
-
-		if index == 1 {
-			return errors.Errorf("cannot delete the default domain configuration")
-		}
-
-		err = api.DeleteDeploymentDomain(ctx, deploymentID, index)
-		if err != nil {
-			return errors.Errorf("delete index %d: %v", index, err)
+			return errors.Errorf("delete domain %s: %v", domain, err)
 		}
 
 		return nil

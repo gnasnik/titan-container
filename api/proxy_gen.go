@@ -51,7 +51,7 @@ type ManagerStruct struct {
 
 		CreateDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
 
-		DeleteDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 int64) error `perm:"admin"`
+		DeleteDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 string) error `perm:"admin"`
 
 		GetDeploymentDomains func(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) `perm:"read"`
 
@@ -89,7 +89,7 @@ type ProviderStruct struct {
 
 		CreateDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
 
-		DeleteDomain func(p0 context.Context, p1 types.DeploymentID, p2 int64) error `perm:"admin"`
+		DeleteDomain func(p0 context.Context, p1 types.DeploymentID, p2 string) error `perm:"admin"`
 
 		GetDeployment func(p0 context.Context, p1 types.DeploymentID) (*types.Deployment, error) `perm:"read"`
 
@@ -257,14 +257,14 @@ func (s *ManagerStub) CreateDeployment(p0 context.Context, p1 *types.Deployment)
 	return ErrNotSupported
 }
 
-func (s *ManagerStruct) DeleteDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
+func (s *ManagerStruct) DeleteDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
 	if s.Internal.DeleteDeploymentDomain == nil {
 		return ErrNotSupported
 	}
 	return s.Internal.DeleteDeploymentDomain(p0, p1, p2)
 }
 
-func (s *ManagerStub) DeleteDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
+func (s *ManagerStub) DeleteDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
 	return ErrNotSupported
 }
 
@@ -422,14 +422,14 @@ func (s *ProviderStub) CreateDeployment(p0 context.Context, p1 *types.Deployment
 	return ErrNotSupported
 }
 
-func (s *ProviderStruct) DeleteDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
+func (s *ProviderStruct) DeleteDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
 	if s.Internal.DeleteDomain == nil {
 		return ErrNotSupported
 	}
 	return s.Internal.DeleteDomain(p0, p1, p2)
 }
 
-func (s *ProviderStub) DeleteDomain(p0 context.Context, p1 types.DeploymentID, p2 int64) error {
+func (s *ProviderStub) DeleteDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
 	return ErrNotSupported
 }
 

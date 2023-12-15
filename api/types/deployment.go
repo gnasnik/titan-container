@@ -219,8 +219,12 @@ type Properties struct {
 }
 
 type DeploymentDomain struct {
-	Host  string
-	State string
+	ID           int       `db:"id"`
+	Name         string    `db:"name"`
+	State        string    `db:"state"`
+	DeploymentID string    `db:"deployment_id"`
+	CreatedAt    time.Time `db:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at"`
 }
 
 type ShellEndpoint struct {
