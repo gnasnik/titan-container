@@ -38,6 +38,7 @@ type Client interface {
 	ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error
 	Exec(ctx context.Context, id types.DeploymentID, podIndex int, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error)
+	GetSufficientResourceNodes(ctx context.Context, reqResources *types.ComputeResources) ([]*types.SufficientResourceNode, error)
 }
 
 type client struct {
@@ -68,21 +69,17 @@ func (c *client) GetStatistics(ctx context.Context) (*types.ResourcesStatistics,
 	statistics := &types.ResourcesStatistics{}
 	for _, node := range nodeResources {
 		statistics.CPUCores.MaxCPUCores += node.CPU.Capacity.AsApproximateFloat64()
-		statistics.CPUCores.Available += node.CPU.Allocatable.AsApproximateFloat64()
+		statistics.CPUCores.Available += (node.CPU.Allocatable.AsApproximateFloat64() - node.CPU.Allocated.AsApproximateFloat64())
 		statistics.CPUCores.Active += node.CPU.Allocated.AsApproximateFloat64()
 
 		statistics.Memory.MaxMemory += uint64(node.Memory.Capacity.AsApproximateFloat64())
-		statistics.Memory.Available += uint64(node.Memory.Allocatable.AsApproximateFloat64())
+		statistics.Memory.Available += uint64(node.Memory.Allocatable.AsApproximateFloat64() - node.Memory.Allocated.AsApproximateFloat64())
 		statistics.Memory.Active += uint64(node.Memory.Allocated.AsApproximateFloat64())
 
 		statistics.Storage.MaxStorage += uint64(node.EphemeralStorage.Capacity.AsApproximateFloat64())
-		statistics.Storage.Available += uint64(node.EphemeralStorage.Allocatable.AsApproximateFloat64())
+		statistics.Storage.Available += uint64(node.EphemeralStorage.Allocatable.AsApproximateFloat64() - node.EphemeralStorage.Allocated.AsApproximateFloat64())
 		statistics.Storage.Active += uint64(node.EphemeralStorage.Allocated.AsApproximateFloat64())
 	}
-
-	statistics.CPUCores.Available = statistics.CPUCores.Available - statistics.CPUCores.Active
-	statistics.Memory.Available = statistics.Memory.Available - statistics.Memory.Active
-	statistics.Storage.Available = statistics.Storage.Available - statistics.Storage.Active
 
 	return statistics, nil
 }
@@ -95,21 +92,16 @@ func (c *client) GetNodeResources(ctx context.Context, nodeName string) (*types.
 
 	statistics := &types.ResourcesStatistics{}
 	statistics.CPUCores.MaxCPUCores += node.CPU.Capacity.AsApproximateFloat64()
-	statistics.CPUCores.Available += node.CPU.Allocatable.AsApproximateFloat64()
+	statistics.CPUCores.Available += (node.CPU.Allocatable.AsApproximateFloat64() - node.CPU.Allocated.AsApproximateFloat64())
 	statistics.CPUCores.Active += node.CPU.Allocated.AsApproximateFloat64()
 
 	statistics.Memory.MaxMemory += uint64(node.Memory.Capacity.AsApproximateFloat64())
-	statistics.Memory.Available += uint64(node.Memory.Allocatable.AsApproximateFloat64())
+	statistics.Memory.Available += uint64(node.Memory.Allocatable.AsApproximateFloat64() - node.Memory.Allocated.AsApproximateFloat64())
 	statistics.Memory.Active += uint64(node.Memory.Allocated.AsApproximateFloat64())
 
 	statistics.Storage.MaxStorage += uint64(node.EphemeralStorage.Capacity.AsApproximateFloat64())
-	statistics.Storage.Available += uint64(node.EphemeralStorage.Allocatable.AsApproximateFloat64())
+	statistics.Storage.Available += uint64(node.EphemeralStorage.Allocatable.AsApproximateFloat64() - node.EphemeralStorage.Allocated.AsApproximateFloat64())
 	statistics.Storage.Active += uint64(node.EphemeralStorage.Allocated.AsApproximateFloat64())
-
-	statistics.CPUCores.Available = statistics.CPUCores.Available - statistics.CPUCores.Active
-	statistics.Memory.Available = statistics.Memory.Available - statistics.Memory.Active
-	statistics.Storage.Available = statistics.Storage.Available - statistics.Storage.Active
-
 	return statistics, nil
 }
 
@@ -589,4 +581,69 @@ func (c *client) Exec(ctx context.Context, id types.DeploymentID, podIndex int, 
 
 	return types.ExecResult{Code: result.ExitCode()}, err
 
+}
+
+func (c *client) GetSufficientResourceNodes(ctx context.Context, reqResources *types.ComputeResources) ([]*types.SufficientResourceNode, error) {
+	nodeResources, err := c.kc.FetchAllNodeResources(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if nodeResources == nil {
+		return nil, fmt.Errorf("nodes resources do not exist")
+	}
+
+	nodes := make([]*types.SufficientResourceNode, 0)
+	for name, node := range nodeResources {
+		usableCPU := node.CPU.Allocatable.AsApproximateFloat64() - node.CPU.Allocated.AsApproximateFloat64()
+		if usableCPU < reqResources.CPU {
+			continue
+		}
+
+		usableMemory := node.Memory.Allocatable.AsApproximateFloat64() - node.Memory.Allocated.AsApproximateFloat64()
+		if int64(usableMemory) < reqResources.Memory {
+			continue
+		}
+
+		usableGPU := node.GPU.Allocatable.AsApproximateFloat64() - node.CPU.Allocated.AsApproximateFloat64()
+		if usableGPU < reqResources.GPU {
+			continue
+		}
+
+		usableEphemeralStorage := node.EphemeralStorage.Allocatable.AsApproximateFloat64() - node.EphemeralStorage.Allocated.AsApproximateFloat64()
+		ephemeralStorage, _ := countStorage(reqResources.Storage)
+		if usableEphemeralStorage < float64(ephemeralStorage) {
+			continue
+		}
+
+		// TODO: check volumesStorage size
+		var statistics types.ResourcesStatistics
+		statistics.CPUCores.MaxCPUCores = node.CPU.Capacity.AsApproximateFloat64()
+		statistics.CPUCores.Available = node.CPU.Allocatable.AsApproximateFloat64() - node.CPU.Allocated.AsApproximateFloat64()
+		statistics.CPUCores.Active = node.CPU.Allocated.AsApproximateFloat64()
+
+		statistics.Memory.MaxMemory = uint64(node.Memory.Capacity.AsApproximateFloat64())
+		statistics.Memory.Available = uint64(node.Memory.Allocatable.AsApproximateFloat64() - node.Memory.Allocated.AsApproximateFloat64())
+		statistics.Memory.Active = uint64(node.Memory.Allocated.AsApproximateFloat64())
+
+		statistics.Storage.MaxStorage = uint64(node.EphemeralStorage.Capacity.AsApproximateFloat64())
+		statistics.Storage.Available = uint64(node.EphemeralStorage.Allocatable.AsApproximateFloat64() - node.EphemeralStorage.Allocated.AsApproximateFloat64())
+		statistics.Storage.Active = uint64(node.EphemeralStorage.Allocated.AsApproximateFloat64())
+
+		srNode := &types.SufficientResourceNode{Name: name, ResourcesStatistics: statistics}
+		nodes = append(nodes, srNode)
+
+	}
+	return nodes, nil
+}
+
+func countStorage(storages []*types.Storage) (ephemeralStorage int64, volumesStorage int64) {
+	for _, storage := range storages {
+		if storage.Persistent {
+			volumesStorage += storage.Quantity
+		} else {
+			ephemeralStorage += storage.Quantity
+		}
+	}
+	return
 }

@@ -69,3 +69,8 @@ type StorageStat struct {
 	Active     uint64
 	Pending    uint64
 }
+
+type SufficientResourceNode struct {
+	Name string
+	ResourcesStatistics
+}

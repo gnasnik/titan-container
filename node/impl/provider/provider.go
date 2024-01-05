@@ -70,3 +70,7 @@ func (p *Provider) DeleteDomain(ctx context.Context, id types.DeploymentID, host
 func (p *Provider) ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
 	return p.Client.ImportCertificate(ctx, id, cert)
 }
+
+func (p *Provider) GetSufficientResourceNodes(ctx context.Context, reqResources *types.ComputeResources) ([]*types.SufficientResourceNode, error) {
+	return p.Client.GetSufficientResourceNodes(ctx, reqResources)
+}

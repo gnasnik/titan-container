@@ -1,6 +1,7 @@
 package kube
 
 import (
+	"github.com/Filecoin-Titan/titan-container/node/impl/provider/kube/builder"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -23,6 +24,7 @@ func newResourceItem(capacity, allocatable, allocated resource.Quantity) resourc
 
 type nodeResource struct {
 	CPU              resourceItem
+	GPU              resourceItem
 	Memory           resourceItem
 	EphemeralStorage resourceItem
 }
@@ -34,8 +36,11 @@ func newNodeResource(nodeStatus *corev1.NodeStatus) *nodeResource {
 	capacity := nodeStatus.Capacity
 	allocatable := nodeStatus.Allocatable
 
+	gpuName := builder.ResourceGPUNvidia
+
 	nr := &nodeResource{
 		CPU:              newResourceItem(capacity.Cpu().DeepCopy(), allocatable.Cpu().DeepCopy(), mzero.DeepCopy()),
+		GPU:              newResourceItem(capacity.Name(gpuName, resource.DecimalSI).DeepCopy(), allocatable.Name(gpuName, resource.DecimalSI).DeepCopy(), mzero.DeepCopy()),
 		Memory:           newResourceItem(capacity.Memory().DeepCopy(), allocatable.Memory().DeepCopy(), zero.DeepCopy()),
 		EphemeralStorage: newResourceItem(capacity.StorageEphemeral().DeepCopy(), allocatable.StorageEphemeral().DeepCopy(), zero.DeepCopy()),
 	}

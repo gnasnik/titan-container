@@ -101,6 +101,8 @@ type ProviderStruct struct {
 
 		GetStatistics func(p0 context.Context) (*types.ResourcesStatistics, error) `perm:"read"`
 
+		GetSufficientResourceNodes func(p0 context.Context, p1 *types.ComputeResources) ([]*types.SufficientResourceNode, error) `perm:"admin"`
+
 		ImportCertificate func(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error `perm:"admin"`
 
 		Session func(p0 context.Context) (uuid.UUID, error) `perm:"admin"`
@@ -486,6 +488,17 @@ func (s *ProviderStruct) GetStatistics(p0 context.Context) (*types.ResourcesStat
 
 func (s *ProviderStub) GetStatistics(p0 context.Context) (*types.ResourcesStatistics, error) {
 	return nil, ErrNotSupported
+}
+
+func (s *ProviderStruct) GetSufficientResourceNodes(p0 context.Context, p1 *types.ComputeResources) ([]*types.SufficientResourceNode, error) {
+	if s.Internal.GetSufficientResourceNodes == nil {
+		return *new([]*types.SufficientResourceNode), ErrNotSupported
+	}
+	return s.Internal.GetSufficientResourceNodes(p0, p1)
+}
+
+func (s *ProviderStub) GetSufficientResourceNodes(p0 context.Context, p1 *types.ComputeResources) ([]*types.SufficientResourceNode, error) {
+	return *new([]*types.SufficientResourceNode), ErrNotSupported
 }
 
 func (s *ProviderStruct) ImportCertificate(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
