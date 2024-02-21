@@ -36,4 +36,5 @@ type ProviderCfg struct {
 	ExposeIP         string
 	IngressClassName string
 	KubeConfigPath   string
+	WalletDir        string
 }

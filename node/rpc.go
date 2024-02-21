@@ -75,7 +75,7 @@ func ManagerHandler(a api.Manager, permissioned bool, opts ...jsonrpc.ServerOpti
 	if permissioned {
 		fnapi = api.PermissionedManagerAPI(fnapi)
 	}
-
+	
 	serveRpc("/rpc/v0", fnapi)
 	m.PathPrefix("/").Handler(http.DefaultServeMux) // pprof
 

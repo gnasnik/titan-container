@@ -378,10 +378,6 @@ func (c *client) isPersistent(service *manifest.Service) bool {
 }
 
 func (c *client) checkStatefulSetStorage(storages []*manifest.Storage, pvcs []corev1.PersistentVolumeClaim) bool {
-	if len(storages) != len(pvcs) {
-		return false
-	}
-
 	for i := 0; i < len(storages); i++ {
 		storage := storages[i]
 		pvc := pvcs[i]

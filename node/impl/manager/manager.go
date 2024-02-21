@@ -165,6 +165,10 @@ func (m *Manager) UpdateDeployment(ctx context.Context, deployment *types.Deploy
 		return err
 	}
 
+	if deploy.Owner != deployment.Owner {
+		return errors.Errorf("update operation not allow")
+	}
+
 	deployment.ProviderID = deploy.ProviderID
 	providerApi, err := m.ProviderManager.Get(deployment.ProviderID)
 	if err != nil {
@@ -208,6 +212,15 @@ func (m *Manager) CloseDeployment(ctx context.Context, deployment *types.Deploym
 			return err
 		}
 
+		deploy, err := providerApi.GetDeployment(ctx, deployment.ID)
+		if err != nil {
+			return err
+		}
+
+		if deploy.Owner != deployment.Owner {
+			return errors.Errorf("delete operation not allow")
+		}
+
 		err = providerApi.CloseDeployment(ctx, deployment)
 		if err != nil {
 			return err
@@ -224,7 +237,16 @@ func (m *Manager) CloseDeployment(ctx context.Context, deployment *types.Deploym
 }
 
 func (m *Manager) GetLogs(ctx context.Context, deployment *types.Deployment) ([]*types.ServiceLog, error) {
-	providerApi, err := m.ProviderManager.Get(deployment.ProviderID)
+	deploy, err := m.DB.GetDeploymentById(ctx, deployment.ID)
+	if errors.As(err, sql.ErrNoRows) {
+		return nil, ErrDeploymentNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	providerApi, err := m.ProviderManager.Get(deploy.ProviderID)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +255,16 @@ func (m *Manager) GetLogs(ctx context.Context, deployment *types.Deployment) ([]
 }
 
 func (m *Manager) GetEvents(ctx context.Context, deployment *types.Deployment) ([]*types.ServiceEvent, error) {
-	providerApi, err := m.ProviderManager.Get(deployment.ProviderID)
+	deploy, err := m.DB.GetDeploymentById(ctx, deployment.ID)
+	if errors.As(err, sql.ErrNoRows) {
+		return nil, ErrDeploymentNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	providerApi, err := m.ProviderManager.Get(deploy.ProviderID)
 	if err != nil {
 		return nil, err
 	}
