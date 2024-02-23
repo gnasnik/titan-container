@@ -279,14 +279,14 @@ var runCmd = &cli.Command{
 			return err
 		}
 
-		scheme := "http://"
+		scheme := "http"
 		if providerCfg.CertificateKey != "" && providerCfg.Certificate != "" {
-			scheme = "https://"
+			scheme = "https"
 		}
 
-		rpcURL := scheme + address + "/rpc/v0"
+		rpcURL := scheme + "://" + address + "/rpc/v0"
 		if len(providerCfg.API.RemoteListenAddress) > 0 {
-			rpcURL = scheme + providerCfg.API.RemoteListenAddress + "/rpc/v0"
+			rpcURL = scheme + "://" + providerCfg.API.RemoteListenAddress + "/rpc/v0"
 		}
 
 		managerSession, err := managerAPI.Session(ctx)
@@ -356,9 +356,11 @@ var runCmd = &cli.Command{
 		}()
 
 		if scheme == "https" {
+			log.Info("server tls server on: ", rpcURL)
 			return srv.ServeTLS(nl, providerCfg.Certificate, providerCfg.CertificateKey)
 		}
 
+		log.Info("server server on: ", rpcURL)
 		return srv.Serve(nl)
 
 		//if len(providerCfg.API.CertificateKeyPath) == 0 || len(providerCfg.API.CertificatePemPath) == 0 {
