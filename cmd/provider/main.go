@@ -2,7 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	tls "crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net"
 	"net/http"
 	"os"
@@ -273,10 +279,14 @@ var runCmd = &cli.Command{
 			return err
 		}
 
-		rpcURL := "http://" + address + "/rpc/v0"
-		if len(providerCfg.API.RemoteListenAddress) > 0 {
-			rpcURL = "http://" + providerCfg.API.RemoteListenAddress + "/rpc/v0"
+		scheme := "http://"
+		if providerCfg.API.CertificatePemPath != "" && providerCfg.API.CertificateKeyPath != "" {
+			scheme = "https://"
+		}
 
+		rpcURL := scheme + address + "/rpc/v0"
+		if len(providerCfg.API.RemoteListenAddress) > 0 {
+			rpcURL = scheme + providerCfg.API.RemoteListenAddress + "/rpc/v0"
 		}
 
 		managerSession, err := managerAPI.Session(ctx)
@@ -325,6 +335,7 @@ var runCmd = &cli.Command{
 								ID:      types.ProviderID(providerID),
 								Owner:   providerCfg.Owner,
 								HostURI: providerCfg.HostURI,
+								Scheme:  scheme,
 							}); err != nil {
 							log.Errorf("Registering provider failed: %+v", err)
 							cancel()
@@ -344,6 +355,121 @@ var runCmd = &cli.Command{
 			}
 		}()
 
+		if scheme == "https" {
+			return srv.ServeTLS(nl, providerCfg.API.CertificatePemPath, providerCfg.API.CertificateKeyPath)
+		}
+
 		return srv.Serve(nl)
+
+		//if len(providerCfg.API.CertificateKeyPath) == 0 || len(providerCfg.API.CertificatePemPath) == 0 {
+		//	//err = ListenAndServeTLSKeyPair(srv, nl)
+		//	//if err != nil {
+		//	//	log.Errorf("tls listen: %v", err)
+		//	//}
+		//	//return nil
+		//	return srv.Serve(nl)
+		//}
+		//
+		//return srv.ServeTLS(nl, providerCfg.API.CertificatePemPath, providerCfg.API.CertificateKeyPath)
+
+		//return srv.Serve(nl)
 	},
+}
+
+type tcpKeepAliveListener struct {
+	*net.TCPListener
+}
+
+// ListenAndServeTLSKeyPair start a server using in-memory TLS KeyPair
+func ListenAndServeTLSKeyPair(srv *http.Server, ln net.Listener) error {
+
+	//server := &http.Server{Addr: addr, Handler: handler}
+
+	cert, err := GenX509KeyPair()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	config := &tls.Config{}
+	config.NextProtos = []string{"http/1.1"}
+	config.Certificates = make([]tls.Certificate, 1)
+	config.Certificates[0] = cert
+
+	//ln, err := net.Listen("tcp", addr)
+	//if err != nil {
+	//	return err
+	//}
+
+	tlsListener := tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)},
+		config)
+
+	return srv.Serve(tlsListener)
+}
+
+// GenX509KeyPair generates the TLS keypair for the server
+func GenX509KeyPair() (tls.Certificate, error) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().Unix()),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(1, 0, 0),
+		IPAddresses: []net.IP{
+			net.ParseIP("0.0.0.0"),
+			net.ParseIP("127.0.0.1"),
+		},
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+	outCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	return outCert, nil
+	//now := time.Now()
+	//template := &x509.Certificate{
+	//	SerialNumber: big.NewInt(now.Unix()),
+	//	Subject: pkix.Name{
+	//		CommonName:         "quickserve.example.com",
+	//		Country:            []string{"USA"},
+	//		Organization:       []string{"example.com"},
+	//		OrganizationalUnit: []string{"quickserve"},
+	//	},
+	//	IPAddresses:           []net.IP{net.ParseIP("0.0.0.0")},
+	//	NotBefore:             now,
+	//	NotAfter:              now.AddDate(1, 0, 1), // Valid for one year
+	//	SubjectKeyId:          []byte{113, 117, 105, 99, 107, 115, 101, 114, 118, 101},
+	//	BasicConstraintsValid: true,
+	//	IsCA:                  true,
+	//	//ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	//	//KeyUsage: x509.KeyUsageKeyEncipherment |
+	//	//	x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+	//}
+	//
+	//priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	//if err != nil {
+	//	return tls.Certificate{}, err
+	//}
+	//
+	//cert, err := x509.CreateCertificate(rand.Reader, template, template,
+	//	priv.Public(), priv)
+	//if err != nil {
+	//	return tls.Certificate{}, err
+	//}
+	//
+	//var outCert tls.Certificate
+	//outCert.Certificate = append(outCert.Certificate, cert)
+	//outCert.PrivateKey = priv
+	//
+	//return outCert, nil
 }

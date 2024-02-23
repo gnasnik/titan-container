@@ -30,7 +30,10 @@ func DefaultProviderCfg() *ProviderCfg {
 	return &ProviderCfg{
 		Common: Common{
 			API: API{
-				ListenAddress: "0.0.0.0:7123",
+				ListenAddress:    "0.0.0.0:7123",
+				ListenTlsAddress: "0.0.0.0:7124",
+				//CertificateKeyPath: "/home/gnasnik/Downloads/container.titannet.io/titannet.io.key",
+				//CertificatePemPath: "/home/gnasnik/Downloads/container.titannet.io/titannet.io.crt",
 			},
 		},
 		Owner:   "",

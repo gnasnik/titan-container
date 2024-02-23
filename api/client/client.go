@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/url"
 	"path"
@@ -55,6 +56,14 @@ func NewProvider(ctx context.Context, addr string, requestHeader http.Header, op
 		return nil, nil, err
 	}
 
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+
 	var res api.ProviderStruct
 	closer, err := jsonrpc.NewMergeClient(ctx, addr, "titan",
 		api.GetInternalStructs(&res),
@@ -62,6 +71,7 @@ func NewProvider(ctx context.Context, addr string, requestHeader http.Header, op
 		rpcenc.ReaderParamEncoder(pushURL),
 		jsonrpc.WithTimeout(30*time.Second),
 		jsonrpc.WithErrors(api.RPCErrors),
+		jsonrpc.WithHTTPClient(client),
 	)
 
 	return &res, closer, err

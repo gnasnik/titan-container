@@ -425,6 +425,7 @@ func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.Deplo
 	}
 
 	endpoint := &types.ShellEndpoint{
+		Schema:    address.Scheme,
 		Host:      address.Host,
 		ShellPath: fmt.Sprintf("%s/%s", shellPath, deploy.ID),
 	}

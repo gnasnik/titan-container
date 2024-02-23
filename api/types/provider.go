@@ -31,6 +31,7 @@ type Provider struct {
 	HostURI   string        `db:"host_uri"`
 	IP        string        `db:"ip"`
 	State     ProviderState `db:"state"`
+	Scheme    string        `db:"-"`
 	CreatedAt time.Time     `db:"created_at"`
 	UpdatedAt time.Time     `db:"updated_at"`
 }

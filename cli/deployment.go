@@ -499,7 +499,13 @@ var ExecuteCmd = &cli.Command{
 			return err
 		}
 
-		endpoint, err := url.Parse(fmt.Sprintf("ws://%s", shellEndpoint.Host+shellEndpoint.ShellPath))
+		fmt.Println("schema", shellEndpoint.Schema)
+		scheme := "ws://"
+		if shellEndpoint.Schema == "https" {
+			scheme = "wss://"
+		}
+
+		endpoint, err := url.Parse(scheme + shellEndpoint.Host + shellEndpoint.ShellPath)
 		if err != nil {
 			return err
 		}
@@ -583,6 +589,7 @@ var ExecuteCmd = &cli.Command{
 			case <-ctx.Done():
 			}
 		}()
+		fmt.Printf(endpoint.String())
 		shellFn := func() error {
 			return handleShell(ctx, endpoint.String(), stdin, stdout, stderr, true, terminalResizes)
 		}

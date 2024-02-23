@@ -228,6 +228,7 @@ type DeploymentDomain struct {
 }
 
 type ShellEndpoint struct {
+	Schema    string
 	Host      string
 	ShellPath string
 }
