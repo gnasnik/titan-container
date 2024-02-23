@@ -14,10 +14,6 @@ type API struct {
 	ListenAddress       string
 	RemoteListenAddress string
 	Timeout             Duration
-
-	ListenTlsAddress   string
-	CertificateKeyPath string
-	CertificatePemPath string
 }
 
 // ManagerCfg manager config

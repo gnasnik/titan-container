@@ -280,7 +280,7 @@ var runCmd = &cli.Command{
 		}
 
 		scheme := "http://"
-		if providerCfg.API.CertificatePemPath != "" && providerCfg.API.CertificateKeyPath != "" {
+		if providerCfg.CertificateKey != "" && providerCfg.Certificate != "" {
 			scheme = "https://"
 		}
 
@@ -356,7 +356,7 @@ var runCmd = &cli.Command{
 		}()
 
 		if scheme == "https" {
-			return srv.ServeTLS(nl, providerCfg.API.CertificatePemPath, providerCfg.API.CertificateKeyPath)
+			return srv.ServeTLS(nl, providerCfg.Certificate, providerCfg.CertificateKey)
 		}
 
 		return srv.Serve(nl)
