@@ -66,6 +66,11 @@ type Deployment struct {
 	ProviderExposeIP string         `db:"provider_expose_ip"`
 }
 
+type GetDeploymentListResp struct {
+	Deployments []*Deployment
+	Total       int64
+}
+
 type ReplicasStatus struct {
 	TotalReplicas     int
 	ReadyReplicas     int
@@ -228,7 +233,7 @@ type DeploymentDomain struct {
 }
 
 type ShellEndpoint struct {
-	Schema    string
+	Scheme    string
 	Host      string
 	ShellPath string
 }

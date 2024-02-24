@@ -362,19 +362,6 @@ var runCmd = &cli.Command{
 
 		log.Info("server server on: ", rpcURL)
 		return srv.Serve(nl)
-
-		//if len(providerCfg.API.CertificateKeyPath) == 0 || len(providerCfg.API.CertificatePemPath) == 0 {
-		//	//err = ListenAndServeTLSKeyPair(srv, nl)
-		//	//if err != nil {
-		//	//	log.Errorf("tls listen: %v", err)
-		//	//}
-		//	//return nil
-		//	return srv.Serve(nl)
-		//}
-		//
-		//return srv.ServeTLS(nl, providerCfg.API.CertificatePemPath, providerCfg.API.CertificateKeyPath)
-
-		//return srv.Serve(nl)
 	},
 }
 

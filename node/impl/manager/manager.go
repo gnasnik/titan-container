@@ -90,8 +90,8 @@ func (m *Manager) GetProviderList(ctx context.Context, opt *types.GetProviderOpt
 	return m.DB.GetAllProviders(ctx, opt)
 }
 
-func (m *Manager) GetDeploymentList(ctx context.Context, opt *types.GetDeploymentOption) ([]*types.Deployment, error) {
-	deployments, err := m.DB.GetDeployments(ctx, opt)
+func (m *Manager) GetDeploymentList(ctx context.Context, opt *types.GetDeploymentOption) (*types.GetDeploymentListResp, error) {
+	total, deployments, err := m.DB.GetDeployments(ctx, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,10 @@ func (m *Manager) GetDeploymentList(ctx context.Context, opt *types.GetDeploymen
 		deployment.Services = remoteDeployment.Services
 	}
 
-	return deployments, nil
+	return &types.GetDeploymentListResp{
+		Deployments: deployments,
+		Total:       total,
+	}, nil
 }
 
 func (m *Manager) CreateDeployment(ctx context.Context, deployment *types.Deployment) error {
@@ -425,7 +428,7 @@ func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.Deplo
 	}
 
 	endpoint := &types.ShellEndpoint{
-		Schema:    address.Scheme,
+		Scheme:    address.Scheme,
 		Host:      address.Host,
 		ShellPath: fmt.Sprintf("%s/%s", shellPath, deploy.ID),
 	}

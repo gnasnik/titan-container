@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"path"
-	"strconv"
 	"sync"
 	"time"
 
@@ -44,7 +43,6 @@ func (w *terminalSizeQueue) Next() *remotecommand.TerminalSize {
 func (w *WebsocketHandler) ShellHandler() http.HandlerFunc {
 	return func(writer http.ResponseWriter, req *http.Request) {
 		id := path.Base(req.URL.Path)
-
 		upgrader := websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -76,17 +74,19 @@ func (w *WebsocketHandler) ShellHandler() http.HandlerFunc {
 			command = append(command, v)
 		}
 
-		var podIndex int
-		podVar := params.Get("podIndex")
-		if len(podVar) > 0 {
-			val, err := strconv.ParseInt(podVar, 10, 64)
-			if err != nil {
-				log.Errorf("parse integer %v", err)
-				writer.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			podIndex = int(val)
-		}
+		//var podIndex int
+		//podVar := params.Get("podIndex")
+		//if len(podVar) > 0 {
+		//	val, err := strconv.ParseInt(podVar, 10, 64)
+		//	if err != nil {
+		//		log.Errorf("parse integer %v", err)
+		//		writer.WriteHeader(http.StatusInternalServerError)
+		//		return
+		//	}
+		//	podIndex = int(val)
+		//}
+
+		podName := params.Get("pod")
 
 		var stdinPipeOut *io.PipeWriter
 		var stdinPipeIn *io.PipeReader
@@ -118,7 +118,7 @@ func (w *WebsocketHandler) ShellHandler() http.HandlerFunc {
 			stdinForExec = stdinPipeIn
 		}
 
-		result, err := w.Client.Exec(subctx, types.DeploymentID(id), podIndex, stdinForExec, stdout, stderr, command, isTty, tsq)
+		result, err := w.Client.Exec(subctx, types.DeploymentID(id), podName, stdinForExec, stdout, stderr, command, isTty, tsq)
 		subcancel()
 
 		responseData := types.ShellResponse{}
@@ -194,6 +194,8 @@ func websocketHandler(wg *sync.WaitGroup, conn *websocket.Conn, stdout io.WriteC
 
 		msgID := data[0]
 		msg := data[1:]
+
+		fmt.Println("got message", msg)
 		switch msgID {
 		case types.ShellCodeStdin:
 			_, err := stdout.Write(msg)

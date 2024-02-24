@@ -245,12 +245,12 @@ var DeploymentList = &cli.Command{
 			opts.State = types.AllDeploymentStates
 		}
 
-		deployments, err := api.GetDeploymentList(ctx, opts)
+		resp, err := api.GetDeploymentList(ctx, opts)
 		if err != nil {
 			return err
 		}
 
-		for _, deployment := range deployments {
+		for _, deployment := range resp.Deployments {
 			for _, service := range deployment.Services {
 				state := types.DeploymentStateInActive
 				if service.Status.TotalReplicas == service.Status.ReadyReplicas {
@@ -316,18 +316,18 @@ var DeleteDeployment = &cli.Command{
 		ctx := ReqContext(cctx)
 		deploymentID := types.DeploymentID(cctx.Args().First())
 
-		deployments, err := api.GetDeploymentList(ctx, &types.GetDeploymentOption{
+		resp, err := api.GetDeploymentList(ctx, &types.GetDeploymentOption{
 			DeploymentID: deploymentID,
 		})
 		if err != nil {
 			return err
 		}
 
-		if len(deployments) == 0 {
+		if len(resp.Deployments) == 0 {
 			return errors.New("deployment not found")
 		}
 
-		for _, deployment := range deployments {
+		for _, deployment := range resp.Deployments {
 			err = api.CloseDeployment(ctx, deployment, cctx.Bool("f"))
 			if err != nil {
 				log.Errorf("delete deployment failed: %v", err)
@@ -361,7 +361,7 @@ var StatusDeployment = &cli.Command{
 		ctx := ReqContext(cctx)
 		deploymentID := types.DeploymentID(cctx.Args().First())
 
-		deployments, err := api.GetDeploymentList(ctx, &types.GetDeploymentOption{
+		resp, err := api.GetDeploymentList(ctx, &types.GetDeploymentOption{
 			DeploymentID: deploymentID,
 		})
 		if err != nil {
@@ -369,7 +369,7 @@ var StatusDeployment = &cli.Command{
 		}
 
 		var deployment *types.Deployment
-		for _, d := range deployments {
+		for _, d := range resp.Deployments {
 			if d.ID == deploymentID {
 				deployment = d
 				continue
@@ -468,10 +468,9 @@ var ExecuteCmd = &cli.Command{
 	Usage: "deployment executor",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:        "pod-index",
-			Usage:       "pod index",
-			DefaultText: "0",
-			Value:       "0",
+			Name:  "pod",
+			Usage: "pod name",
+			Value: "",
 		},
 	},
 	Action: func(cctx *cli.Context) error {
@@ -487,7 +486,29 @@ var ExecuteCmd = &cli.Command{
 			return errors.Errorf("deploymentID empty")
 		}
 
-		podIndex := cctx.String("pod-index")
+		resp, err := api.GetDeploymentList(ctx, &types.GetDeploymentOption{
+			DeploymentID: deploymentID,
+		})
+		if err != nil {
+			return err
+		}
+
+		var deployment *types.Deployment
+		for _, d := range resp.Deployments {
+			if d.ID == deploymentID {
+				deployment = d
+				continue
+			}
+		}
+
+		if deployment == nil {
+			return errors.New("deployment not found")
+		}
+
+		podName := cctx.String("pod")
+		if podName == "" && len(deployment.Services) > 0 {
+			podName = deployment.Services[0].Name
+		}
 
 		commands := cctx.Args().Tail()
 		if len(commands) == 0 {
@@ -499,9 +520,8 @@ var ExecuteCmd = &cli.Command{
 			return err
 		}
 
-		fmt.Println("schema", shellEndpoint.Schema)
 		scheme := "ws://"
-		if shellEndpoint.Schema == "https" {
+		if shellEndpoint.Scheme == "https" {
 			scheme = "wss://"
 		}
 
@@ -518,7 +538,7 @@ var ExecuteCmd = &cli.Command{
 		stdin = os.Stdin
 
 		query := url.Values{}
-		query.Set("podIndex", podIndex)
+		query.Set("pod", podName)
 		for index, cmd := range commands {
 			query.Set(fmt.Sprintf("cmd%d", index), cmd)
 		}
@@ -589,7 +609,7 @@ var ExecuteCmd = &cli.Command{
 			case <-ctx.Done():
 			}
 		}()
-		fmt.Printf(endpoint.String())
+
 		shellFn := func() error {
 			return handleShell(ctx, endpoint.String(), stdin, stdout, stderr, true, terminalResizes)
 		}
@@ -620,10 +640,9 @@ var CopyFileCmd = &cli.Command{
 	UsageText: "manager deployment cp <deployment-id> <src> <dest> [options]",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:        "pod-index",
-			Usage:       "pod index",
-			DefaultText: "0",
-			Value:       "0",
+			Name:  "pod",
+			Usage: "pod name",
+			Value: "",
 		},
 	},
 	Action: func(cctx *cli.Context) error {
@@ -639,7 +658,29 @@ var CopyFileCmd = &cli.Command{
 			return errors.Errorf("deploymentID empty")
 		}
 
-		podIndex := cctx.String("pod-index")
+		resp, err := api.GetDeploymentList(ctx, &types.GetDeploymentOption{
+			DeploymentID: deploymentID,
+		})
+		if err != nil {
+			return err
+		}
+
+		var deployment *types.Deployment
+		for _, d := range resp.Deployments {
+			if d.ID == deploymentID {
+				deployment = d
+				continue
+			}
+		}
+
+		if deployment == nil {
+			return errors.New("deployment not found")
+		}
+
+		podName := cctx.String("pod")
+		if podName == "" && len(deployment.Services) > 0 {
+			podName = deployment.Services[0].Name
+		}
 
 		if len(cctx.Args().Tail()) != 2 {
 			return errors.Errorf("The source path and destination path of the file cannot be empty")
@@ -654,11 +695,17 @@ var CopyFileCmd = &cli.Command{
 			return err
 		}
 
-		endpoint, err := url.Parse(fmt.Sprintf("ws://%s", shellEndpoint.Host+shellEndpoint.ShellPath))
+		scheme := "ws://"
+		if shellEndpoint.Scheme == "https" {
+			scheme = "wss://"
+		}
+
+		endpoint, err := url.Parse(scheme + shellEndpoint.Host + shellEndpoint.ShellPath)
 		if err != nil {
 			return err
 		}
-		err = checkDestinationIsDir(cctx, endpoint.String(), podIndex, destPath)
+
+		err = checkDestinationIsDir(cctx, endpoint.String(), podName, destPath)
 		if err == nil {
 			destPath = filepath.Join(destPath, filepath.Base(srcPath))
 		}
@@ -681,7 +728,7 @@ var CopyFileCmd = &cli.Command{
 		stderr := os.Stderr
 
 		query := url.Values{}
-		query.Set("podIndex", podIndex)
+		query.Set("pod", podName)
 		for index, cmd := range commands {
 			query.Set(fmt.Sprintf("cmd%d", index), cmd)
 		}
@@ -702,7 +749,7 @@ var CopyFileCmd = &cli.Command{
 	},
 }
 
-func checkDestinationIsDir(cctx *cli.Context, wsUrl string, podIndex, destPath string) error {
+func checkDestinationIsDir(cctx *cli.Context, wsUrl string, podName, destPath string) error {
 	ctx, cancel := context.WithCancel(cctx.Context)
 	defer cancel()
 
@@ -721,7 +768,7 @@ func checkDestinationIsDir(cctx *cli.Context, wsUrl string, podIndex, destPath s
 	}
 
 	query := url.Values{}
-	query.Set("podIndex", podIndex)
+	query.Set("pod", podName)
 	for index, cmd := range commands {
 		query.Set(fmt.Sprintf("cmd%d", index), cmd)
 	}

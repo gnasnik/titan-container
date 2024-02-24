@@ -36,7 +36,7 @@ type Client interface {
 	AddDomain(ctx context.Context, id types.DeploymentID, hostname string) error
 	DeleteDomain(ctx context.Context, id types.DeploymentID, hostname string) error
 	ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error
-	Exec(ctx context.Context, id types.DeploymentID, podIndex int, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
+	Exec(ctx context.Context, id types.DeploymentID, podName string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error)
 	GetSufficientResourceNodes(ctx context.Context, reqResources *types.ComputeResources) ([]*types.SufficientResourceNode, error)
 }
@@ -546,24 +546,47 @@ func (c *client) updateDomain(ctx context.Context, id types.DeploymentID, hostna
 	return err
 }
 
-func (c *client) Exec(ctx context.Context, id types.DeploymentID, podIndex int, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error) {
+func (c *client) getPodNameByService(ctx context.Context, ns string, serviceName string) (string, error) {
+	podService, err := c.getPods(ctx, ns)
+	if err != nil {
+		return "", err
+	}
+
+	for podName, srvName := range podService {
+		if srvName == serviceName {
+			return podName, nil
+		}
+	}
+
+	return "", nil
+}
+
+func (c *client) Exec(ctx context.Context, id types.DeploymentID, serviceName string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error) {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	pods, err := c.kc.ListPods(context.Background(), ns, metav1.ListOptions{})
-	if err != nil {
-		return types.ExecResult{Code: 0}, err
-	}
+	//pods, err := c.kc.ListPods(context.Background(), ns, metav1.ListOptions{})
+	//if err != nil {
+	//	return types.ExecResult{Code: 0}, err
+	//}
+	//
+	//if pods == nil || len(pods.Items) == 0 {
+	//	return types.ExecResult{Code: 0}, errors.New("no pod found")
+	//}
 
-	if pods == nil || len(pods.Items) == 0 {
+	//if len(pods.Items) < podIndex {
+	//	return types.ExecResult{Code: 0}, fmt.Errorf("pod index %d not exist", podIndex)
+	//}
+
+	podName, err := c.getPodNameByService(ctx, ns, serviceName)
+	if err != nil {
 		return types.ExecResult{Code: 0}, errors.New("no pod found")
 	}
 
-	if len(pods.Items) < podIndex {
-		return types.ExecResult{Code: 0}, fmt.Errorf("pod index %d not exist", podIndex)
+	pod, err := c.kc.GetPod(ctx, ns, podName)
+	if err != nil {
+		return types.ExecResult{Code: 0}, err
 	}
-
-	pod := pods.Items[podIndex]
 
 	// this should never happen, but just in case
 	if len(pod.Spec.Containers) == 0 {

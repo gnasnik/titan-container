@@ -55,7 +55,7 @@ type DeploymentService struct {
 	types.Service `db:"service"`
 }
 
-func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploymentOption) ([]*types.Deployment, error) {
+func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploymentOption) (int64, []*types.Deployment, error) {
 	var ds []*DeploymentService
 	qry := `SELECT d.*, 
        		s.image as 'service.image', 
@@ -72,6 +72,7 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 		FROM (%s) as d LEFT JOIN services s ON d.id = s.deployment_id LEFT JOIN providers p ON d.provider_id = p.id`
 
 	subQry := `SELECT * from deployments`
+	countQry := `SELECT count(1) from deployments`
 
 	var condition []string
 	if option.DeploymentID != "" {
@@ -99,6 +100,15 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 	if len(condition) > 0 {
 		subQry += ` WHERE `
 		subQry += strings.Join(condition, ` AND `)
+
+		countQry += ` WHERE `
+		countQry += strings.Join(condition, ` AND `)
+	}
+
+	var total int64
+	err := m.db.GetContext(ctx, &total, countQry)
+	if err != nil {
+		return 0, nil, err
 	}
 
 	if option.Page <= 0 {
@@ -115,10 +125,9 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 
 	qry = fmt.Sprintf(qry, subQry)
 
-	log.Debug(qry)
-	err := m.db.SelectContext(ctx, &ds, qry)
+	err = m.db.SelectContext(ctx, &ds, qry)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
 	var out []*types.Deployment
@@ -133,11 +142,11 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 		deploymentToServices[d.Deployment.ID].Services = append(deploymentToServices[d.Deployment.ID].Services, &d.Service)
 	}
 
-	return out, nil
+	return total, out, nil
 }
 
 func (m *ManagerDB) GetDeploymentById(ctx context.Context, id types.DeploymentID) (*types.Deployment, error) {
-	out, err := m.GetDeployments(ctx, &types.GetDeploymentOption{
+	_, out, err := m.GetDeployments(ctx, &types.GetDeploymentOption{
 		DeploymentID: id,
 	})
 	if err != nil {

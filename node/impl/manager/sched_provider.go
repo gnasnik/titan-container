@@ -50,10 +50,10 @@ func (p *ProviderManager) AddProvider(id types.ProviderID, providerApi api.Provi
 	p.lk.Lock()
 	defer p.lk.Unlock()
 
-	_, exist := p.providers[id]
-	if exist {
-		return nil
-	}
+	//_, exist := p.providers[id]
+	//if exist {
+	//	return nil
+	//}
 
 	p.providers[id] = &providerLife{
 		Provider:   providerApi,

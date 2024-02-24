@@ -55,7 +55,7 @@ type ManagerStruct struct {
 
 		GetDeploymentDomains func(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) `perm:"read"`
 
-		GetDeploymentList func(p0 context.Context, p1 *types.GetDeploymentOption) ([]*types.Deployment, error) `perm:"read"`
+		GetDeploymentList func(p0 context.Context, p1 *types.GetDeploymentOption) (*types.GetDeploymentListResp, error) `perm:"read"`
 
 		GetDeploymentShellEndpoint func(p0 context.Context, p1 types.DeploymentID) (*types.ShellEndpoint, error) `perm:"admin"`
 
@@ -281,15 +281,15 @@ func (s *ManagerStub) GetDeploymentDomains(p0 context.Context, p1 types.Deployme
 	return *new([]*types.DeploymentDomain), ErrNotSupported
 }
 
-func (s *ManagerStruct) GetDeploymentList(p0 context.Context, p1 *types.GetDeploymentOption) ([]*types.Deployment, error) {
+func (s *ManagerStruct) GetDeploymentList(p0 context.Context, p1 *types.GetDeploymentOption) (*types.GetDeploymentListResp, error) {
 	if s.Internal.GetDeploymentList == nil {
-		return *new([]*types.Deployment), ErrNotSupported
+		return nil, ErrNotSupported
 	}
 	return s.Internal.GetDeploymentList(p0, p1)
 }
 
-func (s *ManagerStub) GetDeploymentList(p0 context.Context, p1 *types.GetDeploymentOption) ([]*types.Deployment, error) {
-	return *new([]*types.Deployment), ErrNotSupported
+func (s *ManagerStub) GetDeploymentList(p0 context.Context, p1 *types.GetDeploymentOption) (*types.GetDeploymentListResp, error) {
+	return nil, ErrNotSupported
 }
 
 func (s *ManagerStruct) GetDeploymentShellEndpoint(p0 context.Context, p1 types.DeploymentID) (*types.ShellEndpoint, error) {
