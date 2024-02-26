@@ -170,6 +170,9 @@ func createDeploymentFromTemplate(ctx context.Context, api api.Manager, provider
 		return err
 	}
 
+	x, _ := json.Marshal(deployment)
+	fmt.Println(string(x))
+
 	deployment.ProviderID = providerID
 	return api.CreateDeployment(ctx, &deployment)
 }

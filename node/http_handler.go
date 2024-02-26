@@ -195,7 +195,6 @@ func websocketHandler(wg *sync.WaitGroup, conn *websocket.Conn, stdout io.WriteC
 		msgID := data[0]
 		msg := data[1:]
 
-		fmt.Println("got message", msg)
 		switch msgID {
 		case types.ShellCodeStdin:
 			_, err := stdout.Write(msg)
