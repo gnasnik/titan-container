@@ -210,12 +210,11 @@ func (m *Manager) UpdateDeployment(ctx context.Context, deployment *types.Deploy
 
 func (m *Manager) CloseDeployment(ctx context.Context, deployment *types.Deployment, force bool) error {
 	remoteClose := func() error {
-		providerApi, err := m.ProviderManager.Get(deployment.ProviderID)
-		if err != nil {
-			return err
+		deploy, err := m.DB.GetDeploymentById(ctx, deployment.ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("deployment not found")
 		}
 
-		deploy, err := providerApi.GetDeployment(ctx, deployment.ID)
 		if err != nil {
 			return err
 		}
@@ -224,7 +223,12 @@ func (m *Manager) CloseDeployment(ctx context.Context, deployment *types.Deploym
 			return errors.Errorf("delete operation not allow")
 		}
 
-		err = providerApi.CloseDeployment(ctx, deployment)
+		providerApi, err := m.ProviderManager.Get(deploy.ProviderID)
+		if err != nil {
+			return err
+		}
+
+		err = providerApi.CloseDeployment(ctx, deploy)
 		if err != nil {
 			return err
 		}
@@ -342,8 +346,8 @@ func includeIP(hostname string, expectedIP string) bool {
 	return false
 }
 
-func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
-	domain, err := m.DB.GetDomain(ctx, hostname)
+func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
+	domain, err := m.DB.GetDomain(ctx, cert.Host)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -366,14 +370,14 @@ func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID
 		return err
 	}
 
-	err = providerApi.AddDomain(ctx, deploy.ID, hostname)
+	err = providerApi.AddDomain(ctx, deploy.ID, cert)
 	if err != nil {
 		return err
 	}
 
 	return m.DB.AddDomain(ctx, &types.DeploymentDomain{
 		DeploymentID: string(id),
-		Name:         hostname,
+		Name:         cert.Host,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	})
@@ -434,43 +438,6 @@ func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.Deplo
 	}
 
 	return endpoint, nil
-}
-
-func (m *Manager) ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
-	domain, err := m.DB.GetDomain(ctx, cert.Host)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
-
-	if domain != nil && domain.DeploymentID == string(id) {
-		return ErrDomainAlreadyExist
-	}
-
-	deploy, err := m.DB.GetDeploymentById(ctx, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return ErrDeploymentNotFound
-	}
-
-	if err != nil {
-		return err
-	}
-
-	providerApi, err := m.ProviderManager.Get(deploy.ProviderID)
-	if err != nil {
-		return err
-	}
-
-	err = providerApi.ImportCertificate(ctx, deploy.ID, cert)
-	if err != nil {
-		return err
-	}
-
-	return m.DB.AddDomain(ctx, &types.DeploymentDomain{
-		DeploymentID: string(id),
-		Name:         cert.Host,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	})
 }
 
 var _ api.Manager = &Manager{}

@@ -45,7 +45,7 @@ type ManagerStruct struct {
 	CommonStruct
 
 	Internal struct {
-		AddDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 string) error `perm:"admin"`
+		AddDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error `perm:"admin"`
 
 		CloseDeployment func(p0 context.Context, p1 *types.Deployment, p2 bool) error `perm:"admin"`
 
@@ -67,8 +67,6 @@ type ManagerStruct struct {
 
 		GetStatistics func(p0 context.Context, p1 types.ProviderID) (*types.ResourcesStatistics, error) `perm:"read"`
 
-		ImportCertificate func(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error `perm:"admin"`
-
 		ProviderConnect func(p0 context.Context, p1 string, p2 *types.Provider) error `perm:"admin"`
 
 		SetProperties func(p0 context.Context, p1 *types.Properties) error `perm:"admin"`
@@ -83,7 +81,7 @@ type ManagerStub struct {
 
 type ProviderStruct struct {
 	Internal struct {
-		AddDomain func(p0 context.Context, p1 types.DeploymentID, p2 string) error `perm:"admin"`
+		AddDomain func(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error `perm:"admin"`
 
 		CloseDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
 
@@ -102,8 +100,6 @@ type ProviderStruct struct {
 		GetStatistics func(p0 context.Context) (*types.ResourcesStatistics, error) `perm:"read"`
 
 		GetSufficientResourceNodes func(p0 context.Context, p1 *types.ComputeResources) ([]*types.SufficientResourceNode, error) `perm:"admin"`
-
-		ImportCertificate func(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error `perm:"admin"`
 
 		Session func(p0 context.Context) (uuid.UUID, error) `perm:"admin"`
 
@@ -226,14 +222,14 @@ func (s *CommonStub) Version(p0 context.Context) (APIVersion, error) {
 	return *new(APIVersion), ErrNotSupported
 }
 
-func (s *ManagerStruct) AddDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
+func (s *ManagerStruct) AddDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
 	if s.Internal.AddDeploymentDomain == nil {
 		return ErrNotSupported
 	}
 	return s.Internal.AddDeploymentDomain(p0, p1, p2)
 }
 
-func (s *ManagerStub) AddDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
+func (s *ManagerStub) AddDeploymentDomain(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
 	return ErrNotSupported
 }
 
@@ -347,17 +343,6 @@ func (s *ManagerStub) GetStatistics(p0 context.Context, p1 types.ProviderID) (*t
 	return nil, ErrNotSupported
 }
 
-func (s *ManagerStruct) ImportCertificate(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
-	if s.Internal.ImportCertificate == nil {
-		return ErrNotSupported
-	}
-	return s.Internal.ImportCertificate(p0, p1, p2)
-}
-
-func (s *ManagerStub) ImportCertificate(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
-	return ErrNotSupported
-}
-
 func (s *ManagerStruct) ProviderConnect(p0 context.Context, p1 string, p2 *types.Provider) error {
 	if s.Internal.ProviderConnect == nil {
 		return ErrNotSupported
@@ -391,14 +376,14 @@ func (s *ManagerStub) UpdateDeployment(p0 context.Context, p1 *types.Deployment)
 	return ErrNotSupported
 }
 
-func (s *ProviderStruct) AddDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
+func (s *ProviderStruct) AddDomain(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
 	if s.Internal.AddDomain == nil {
 		return ErrNotSupported
 	}
 	return s.Internal.AddDomain(p0, p1, p2)
 }
 
-func (s *ProviderStub) AddDomain(p0 context.Context, p1 types.DeploymentID, p2 string) error {
+func (s *ProviderStub) AddDomain(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
 	return ErrNotSupported
 }
 
@@ -499,17 +484,6 @@ func (s *ProviderStruct) GetSufficientResourceNodes(p0 context.Context, p1 *type
 
 func (s *ProviderStub) GetSufficientResourceNodes(p0 context.Context, p1 *types.ComputeResources) ([]*types.SufficientResourceNode, error) {
 	return *new([]*types.SufficientResourceNode), ErrNotSupported
-}
-
-func (s *ProviderStruct) ImportCertificate(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
-	if s.Internal.ImportCertificate == nil {
-		return ErrNotSupported
-	}
-	return s.Internal.ImportCertificate(p0, p1, p2)
-}
-
-func (s *ProviderStub) ImportCertificate(p0 context.Context, p1 types.DeploymentID, p2 *types.Certificate) error {
-	return ErrNotSupported
 }
 
 func (s *ProviderStruct) Session(p0 context.Context) (uuid.UUID, error) {

@@ -15,7 +15,6 @@ var DomainCmds = &cli.Command{
 		GetDomainsCmd,
 		AddDomainCmd,
 		DeleteDomainCmd,
-		ImportCertificateCmd,
 	},
 }
 
@@ -73,6 +72,14 @@ var AddDomainCmd = &cli.Command{
 			Usage:    "the deployment id",
 			Required: true,
 		},
+		&cli.StringFlag{
+			Name:  "key",
+			Usage: "Path to private key associated with given certificate",
+		},
+		&cli.StringFlag{
+			Name:  "cert",
+			Usage: "Path to PEM encoded public key certificate.",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		if cctx.NArg() != 1 {
@@ -97,7 +104,27 @@ var AddDomainCmd = &cli.Command{
 			return errors.Errorf("hostname empty")
 		}
 
-		err = api.AddDeploymentDomain(ctx, deploymentID, hostname)
+		cert := &types.Certificate{
+			Host: hostname,
+		}
+
+		if cctx.String("cert") != "" {
+			certFile, err := os.ReadFile(cctx.String("cert"))
+			if err != nil {
+				return err
+			}
+			cert.Cert = certFile
+		}
+
+		if cctx.String("key") != "" {
+			certKeyFile, err := os.ReadFile(cctx.String("key"))
+			if err != nil {
+				return err
+			}
+			cert.Key = certKeyFile
+		}
+
+		err = api.AddDeploymentDomain(ctx, deploymentID, cert)
 		if err != nil {
 			return errors.Errorf("add new hostname: %v", err)
 		}
@@ -138,70 +165,6 @@ var DeleteDomainCmd = &cli.Command{
 		err = api.DeleteDeploymentDomain(ctx, deploymentID, domain)
 		if err != nil {
 			return errors.Errorf("delete domain %s: %v", domain, err)
-		}
-
-		return nil
-	},
-}
-
-var ImportCertificateCmd = &cli.Command{
-	Name:  "import",
-	Usage: "add domain and tls certificate to deployment",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "deployment-id",
-			Usage:    "the deployment id",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:     "host",
-			Usage:    "hostname",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:     "key",
-			Usage:    "Path to private key associated with given certificate",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:     "cert",
-			Usage:    "Path to PEM encoded public key certificate.",
-			Required: true,
-		},
-	},
-	Action: func(cctx *cli.Context) error {
-		api, closer, err := GetManagerAPI(cctx)
-		if err != nil {
-			return err
-		}
-		defer closer()
-
-		ctx := ReqContext(cctx)
-
-		deploymentID := types.DeploymentID(cctx.String("deployment-id"))
-		if deploymentID == "" {
-			return errors.Errorf("deploymentID empty")
-		}
-
-		certFile, err := os.ReadFile(cctx.String("cert"))
-		if err != nil {
-			return err
-		}
-
-		certKeyFile, err := os.ReadFile(cctx.String("key"))
-		if err != nil {
-			return err
-		}
-
-		cert := &types.Certificate{
-			Host: cctx.String("host"),
-			Key:  certKeyFile,
-			Cert: certFile,
-		}
-
-		err = api.ImportCertificate(ctx, deploymentID, cert)
-		if err != nil {
-			return errors.Errorf("import certificate: %v", err)
 		}
 
 		return nil

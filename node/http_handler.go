@@ -219,7 +219,7 @@ func websocketHandler(wg *sync.WaitGroup, conn *websocket.Conn, stdout io.WriteC
 				return
 			}
 
-			log.Debug("terminal resize received", "width", size.Width, "height", size.Height)
+			log.Info("terminal resize received", "width", size.Width, "height", size.Height)
 			if terminalSizeUpdate != nil {
 				terminalSizeUpdate <- size
 			}

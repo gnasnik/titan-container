@@ -21,8 +21,7 @@ type Manager interface {
 	GetEvents(ctx context.Context, deployment *types.Deployment) ([]*types.ServiceEvent, error)                  //perm:read
 	SetProperties(ctx context.Context, properties *types.Properties) error                                       //perm:admin
 	GetDeploymentDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)          //perm:read
-	AddDeploymentDomain(ctx context.Context, id types.DeploymentID, hostname string) error                       //perm:admin
+	AddDeploymentDomain(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error               //perm:admin
 	DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, domain string) error                      //perm:admin
 	GetDeploymentShellEndpoint(ctx context.Context, id types.DeploymentID) (*types.ShellEndpoint, error)         //perm:admin
-	ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error                 //perm:admin
 }

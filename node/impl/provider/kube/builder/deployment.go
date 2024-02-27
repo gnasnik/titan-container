@@ -1,13 +1,20 @@
 package builder
 
 import (
+	"fmt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
 	"strings"
 )
 
-var whiteRegistry = "registry.cn-hongkong.aliyuncs.com"
+var privateRegistry = []string{"registry.cn-hongkong.aliyuncs.com"}
+
+func init() {
+	registry := os.Getenv("REGISTRY")
+	privateRegistry = append(privateRegistry, strings.Split(registry, ",")...)
+}
 
 type Deployment interface {
 	workloadBase
@@ -52,9 +59,7 @@ func (b *deployment) Create() (*appsv1.Deployment, error) { // nolint:golint,unp
 		},
 	}
 
-	if strings.Contains(b.container().Image, whiteRegistry) {
-		deployment.Spec.Template.Spec.ImagePullSecrets = append(deployment.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: whiteRegistry})
-	}
+	b.appendRegistryWhiteList(deployment)
 
 	return deployment, nil
 }
@@ -68,20 +73,29 @@ func (b *deployment) Update(obj *appsv1.Deployment) (*appsv1.Deployment, error) 
 	obj.Spec.Template.Spec.ImagePullSecrets = b.imagePullSecrets()
 	obj.Spec.Template.Spec.NodeSelector = map[string]string{titanNodeSelector: b.osType()}
 
-	var exist bool
-
-	for _, item := range obj.Spec.Template.Spec.ImagePullSecrets {
-		if item.Name == whiteRegistry {
-			exist = true
-		}
-	}
-
-	if !exist {
-		if strings.Contains(b.container().Image, whiteRegistry) {
-			obj.Spec.Template.Spec.ImagePullSecrets = append(obj.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: whiteRegistry})
-		}
-
-	}
+	b.appendRegistryWhiteList(obj)
 
 	return obj, nil
+}
+
+func (b *deployment) appendRegistryWhiteList(obj *appsv1.Deployment) {
+	for _, expectRegistry := range privateRegistry {
+		var exist bool
+
+		for _, item := range obj.Spec.Template.Spec.ImagePullSecrets {
+			if item.Name == expectRegistry {
+				exist = true
+			}
+		}
+
+		if exist {
+			continue
+		}
+
+		if strings.Contains(b.container().Image, expectRegistry) {
+			obj.Spec.Template.Spec.ImagePullSecrets = append(obj.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: expectRegistry})
+		}
+	}
+
+	fmt.Println("after append white registry:", obj.Spec.Template.Spec)
 }

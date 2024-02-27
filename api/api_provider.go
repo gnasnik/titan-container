@@ -16,9 +16,8 @@ type Provider interface {
 	GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.ServiceLog, error)                                               //perm:read
 	GetEvents(ctx context.Context, id types.DeploymentID) ([]*types.ServiceEvent, error)                                           //perm:read
 	GetDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)                                      //perm:read
-	AddDomain(ctx context.Context, id types.DeploymentID, hostname string) error                                                   //perm:admin
-	DeleteDomain(ctx context.Context, id types.DeploymentID, hostname string) error                                                //perm:admin
-	ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error                                   //perm:admin
+	AddDomain(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error                                           //perm:admin
+	DeleteDomain(ctx context.Context, id types.DeploymentID, hostname string) error                                                //perm:admin 	//perm:admin
 	GetSufficientResourceNodes(ctx context.Context, reqResources *types.ComputeResources) ([]*types.SufficientResourceNode, error) //perm:admin
 
 	Version(context.Context) (Version, error)   //perm:admin

@@ -186,9 +186,10 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 
 	container := deployment.Spec.Template.Spec.Containers[0]
 	service := &types.Service{
-		Image: container.Image,
-		Name:  deployment.Name,
-		Env:   make(map[string]string),
+		Image:     container.Image,
+		Name:      deployment.Name,
+		CreatedAt: deployment.CreationTimestamp.Time,
+		Env:       make(map[string]string),
 	}
 
 	service.CPU = container.Resources.Limits.Cpu().AsApproximateFloat64()
@@ -199,9 +200,6 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 		gpu = container.Resources.Limits.Name(builder.ResourceGPUAMD, resource.DecimalSI).AsApproximateFloat64()
 	}
 	service.GPU = gpu
-	for _, envVal := range container.Env {
-		service.Env[envVal.Name] = envVal.Value
-	}
 
 	storage := int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / unitOfStorage
 	service.Storage = []*types.Storage{{Quantity: storage}}
@@ -214,12 +212,21 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 		})
 	}
 
+	for _, envVar := range container.Env {
+		service.Env[envVar.Name] = envVar.Value
+	}
+
 	status := types.ReplicasStatus{
 		TotalReplicas:     int(deployment.Status.Replicas),
 		ReadyReplicas:     int(deployment.Status.ReadyReplicas),
 		AvailableReplicas: int(deployment.Status.AvailableReplicas),
 	}
+
 	service.Status = status
+
+	if len(deployment.Status.Conditions) > 0 {
+		service.ErrorMessage = deployment.Status.Conditions[len(deployment.Status.Conditions)-1].Reason
+	}
 
 	return service, nil
 }
@@ -244,15 +251,22 @@ func k8sStatefulSetToService(statefulSet *appsv1.StatefulSet) (*types.Service, e
 	}
 
 	container := statefulSet.Spec.Template.Spec.Containers[0]
-	service := &types.Service{Image: container.Image, Name: container.Name}
+	service := &types.Service{
+		Image:     container.Image,
+		Name:      container.Name,
+		CreatedAt: statefulSet.CreationTimestamp.Time,
+		Env:       make(map[string]string),
+	}
+
 	service.CPU = container.Resources.Limits.Cpu().AsApproximateFloat64()
 	service.Memory = container.Resources.Limits.Memory().Value() / unitOfMemory
+	gpu := container.Resources.Limits.Name(builder.ResourceGPUNvidia, resource.DecimalSI).AsApproximateFloat64()
+	if gpu == 0 {
+		gpu = container.Resources.Limits.Name(builder.ResourceGPUAMD, resource.DecimalSI).AsApproximateFloat64()
+	}
+	service.GPU = gpu
 
-	//storage := int64(container.Resources.Limits.StorageEphemeral().AsApproximateFloat64()) / unitOfStorage
 	service.Storage = []*types.Storage{}
-	//if len(statefulSet.Spec.VolumeClaimTemplates) > 0 {
-	//	storage += int64(statefulSet.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage().AsApproximateFloat64()) / unitOfStorage
-	//}
 	for _, template := range statefulSet.Spec.VolumeClaimTemplates {
 		service.Storage = append(service.Storage, &types.Storage{
 			Persistent: true,
@@ -268,12 +282,21 @@ func k8sStatefulSetToService(statefulSet *appsv1.StatefulSet) (*types.Service, e
 		})
 	}
 
+	for _, envVar := range container.Env {
+		service.Env[envVar.Name] = envVar.Value
+	}
+
 	status := types.ReplicasStatus{
 		TotalReplicas:     int(statefulSet.Status.Replicas),
 		ReadyReplicas:     int(statefulSet.Status.ReadyReplicas),
 		AvailableReplicas: int(statefulSet.Status.AvailableReplicas),
 	}
+
 	service.Status = status
+
+	if len(statefulSet.Status.Conditions) > 0 {
+		service.ErrorMessage = statefulSet.Status.Conditions[len(statefulSet.Status.Conditions)-1].Reason
+	}
 
 	return service, nil
 }

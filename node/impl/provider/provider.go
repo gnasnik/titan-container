@@ -59,16 +59,12 @@ func (p *Provider) GetDomains(ctx context.Context, id types.DeploymentID) ([]*ty
 	return p.Client.GetDomains(ctx, id)
 }
 
-func (p *Provider) AddDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
-	return p.Client.AddDomain(ctx, id, hostname)
+func (p *Provider) AddDomain(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
+	return p.Client.AddDomain(ctx, id, cert)
 }
 
 func (p *Provider) DeleteDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
 	return p.Client.DeleteDomain(ctx, id, hostname)
-}
-
-func (p *Provider) ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
-	return p.Client.ImportCertificate(ctx, id, cert)
 }
 
 func (p *Provider) GetSufficientResourceNodes(ctx context.Context, reqResources *types.ComputeResources) ([]*types.SufficientResourceNode, error) {

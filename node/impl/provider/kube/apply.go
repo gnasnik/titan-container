@@ -4,6 +4,7 @@ package kube
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	corev1 "k8s.io/api/core/v1"
@@ -79,6 +80,13 @@ func applyDeployment(ctx context.Context, kc kubernetes.Interface, b builder.Dep
 		}
 	}
 
+	for _, imagePullSecret := range obj.Spec.Template.Spec.ImagePullSecrets {
+		aErr := applyPrivateRegistrySecrets(ctx, kc, b.NS(), imagePullSecret.Name)
+		if aErr != nil {
+			fmt.Println("applyPrivateRegistrySecrets: ", aErr)
+		}
+	}
+
 	return err
 }
 
@@ -99,6 +107,28 @@ func applyStatefulSet(ctx context.Context, kc kubernetes.Interface, b builder.St
 			_, err = kc.AppsV1().StatefulSets(b.NS()).Create(ctx, obj, metav1.CreateOptions{})
 		}
 	}
+
+	for _, imagePullSecret := range obj.Spec.Template.Spec.ImagePullSecrets {
+		aErr := applyPrivateRegistrySecrets(ctx, kc, b.NS(), imagePullSecret.Name)
+		if aErr != nil {
+			fmt.Println("applyPrivateRegistrySecrets: ", aErr)
+		}
+	}
+
+	return err
+}
+
+func applyPrivateRegistrySecrets(ctx context.Context, kc kubernetes.Interface, ns string, name string) error {
+	defaultSecrets, err := kc.CoreV1().Secrets("default").Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	_, err = kc.CoreV1().Secrets(ns).Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Data:       defaultSecrets.Data,
+		Type:       defaultSecrets.Type,
+	}, metav1.CreateOptions{})
 	return err
 }
 

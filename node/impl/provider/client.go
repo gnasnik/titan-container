@@ -33,9 +33,8 @@ type Client interface {
 	GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.ServiceLog, error)
 	GetEvents(ctx context.Context, id types.DeploymentID) ([]*types.ServiceEvent, error)
 	GetDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)
-	AddDomain(ctx context.Context, id types.DeploymentID, hostname string) error
+	AddDomain(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error
 	DeleteDomain(ctx context.Context, id types.DeploymentID, hostname string) error
-	ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error
 	Exec(ctx context.Context, id types.DeploymentID, podName string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error)
 	GetSufficientResourceNodes(ctx context.Context, reqResources *types.ComputeResources) ([]*types.SufficientResourceNode, error)
@@ -175,11 +174,14 @@ func (c *client) UpdateDeployment(ctx context.Context, deployment *types.Deploym
 }
 
 func (c *client) CloseDeployment(ctx context.Context, deployment *types.Deployment) error {
+	fmt.Println("==close", deployment)
 	k8sDeployment, err := ClusterDeploymentFromDeployment(deployment)
 	if err != nil {
 		log.Errorf("CloseDeployment %s", err.Error())
 		return err
 	}
+
+	fmt.Println("==clo2se", k8sDeployment)
 
 	did := k8sDeployment.DeploymentID()
 	ns := builder.DidNS(did)
@@ -430,9 +432,34 @@ func (c *client) GetDomains(ctx context.Context, id types.DeploymentID) ([]*type
 	return out, nil
 }
 
-func (c *client) AddDomain(ctx context.Context, id types.DeploymentID, hostname string) error {
+func (c *client) AddDomain(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
+
+	if cert.Cert != nil && cert.Key != nil {
+		data := map[string][]byte{
+			corev1.TLSPrivateKeyKey: cert.Key,
+			corev1.TLSCertKey:       cert.Cert,
+		}
+
+		var (
+			err    error
+			secret *corev1.Secret
+		)
+
+		_, err = c.kc.GetSecret(ctx, ns, cert.Host)
+		if err == nil {
+			secret, err = c.kc.UpdateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Host, data)
+		} else {
+			secret, err = c.kc.CreateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Host, data)
+		}
+
+		if err != nil {
+			return err
+		}
+
+		return c.updateDomain(ctx, id, cert.Host, secret.Name)
+	}
 
 	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
 	if err != nil {
@@ -440,7 +467,7 @@ func (c *client) AddDomain(ctx context.Context, id types.DeploymentID, hostname 
 	}
 
 	newRule := netv1.IngressRule{
-		Host: hostname,
+		Host: cert.Host,
 	}
 
 	if len(ingress.Spec.Rules) == 0 {
@@ -473,9 +500,11 @@ func (c *client) DeleteDomain(ctx context.Context, id types.DeploymentID, hostna
 
 	ingress.Spec.Rules = newRules
 
+	var newTLS []netv1.IngressTLS
 	for _, tls := range ingress.Spec.TLS {
 		for _, host := range tls.Hosts {
 			if host != hostname {
+				newTLS = append(newTLS, tls)
 				continue
 			}
 
@@ -486,36 +515,10 @@ func (c *client) DeleteDomain(ctx context.Context, id types.DeploymentID, hostna
 		}
 	}
 
+	ingress.Spec.TLS = newTLS
+
 	_, err = c.kc.UpdateIngress(ctx, ns, ingress)
 	return nil
-}
-
-func (c *client) ImportCertificate(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
-	deploymentID := manifest.DeploymentID{ID: string(id)}
-	ns := builder.DidNS(deploymentID)
-
-	data := map[string][]byte{
-		corev1.TLSPrivateKeyKey: cert.Key,
-		corev1.TLSCertKey:       cert.Cert,
-	}
-
-	var (
-		err    error
-		secret *corev1.Secret
-	)
-
-	_, err = c.kc.GetSecret(ctx, ns, cert.Host)
-	if err == nil {
-		secret, err = c.kc.UpdateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Host, data)
-	} else {
-		secret, err = c.kc.CreateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Host, data)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return c.updateDomain(ctx, id, cert.Host, secret.Name)
 }
 
 func (c *client) updateDomain(ctx context.Context, id types.DeploymentID, hostname, secretName string) error {
