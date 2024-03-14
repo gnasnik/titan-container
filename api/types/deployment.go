@@ -150,6 +150,7 @@ func (a Ports) Value() (driver.Value, error) {
 	x := make([]Port, 0, len(a))
 	for _, i := range a {
 		x = append(x, i)
+
 	}
 	return json.Marshal(x)
 }
