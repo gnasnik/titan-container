@@ -12,7 +12,7 @@ import (
 
 var HeartbeatInterval = 10 * time.Second
 
-var ProviderTTL = 30 * time.Second
+var ProviderTTL = 180 * time.Second
 
 var (
 	ErrProviderNotExist = errors.New("provider not exist")
