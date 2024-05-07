@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS services(
     arguments VARCHAR(128) DEFAULT NULL,
     deployment_id VARCHAR(128) NOT NULL,
     error_message VARCHAR(128) DEFAULT NULL,
+    replicas INT NOT NULL DEFAULT 0,
     created_at DATETIME     DEFAULT NULL,
     updated_at DATETIME     DEFAULT NULL,
     PRIMARY KEY (id),
@@ -68,3 +69,6 @@ CREATE TABLE IF NOT EXISTS domains(
     PRIMARY KEY (id),
     UNIQUE KEY idx_name (name)
     )ENGINE=InnoDB COMMENT='domains';
+
+
+-- alter table services add COLUMN replicas INT DEFAULT 0 AFTER error_message;

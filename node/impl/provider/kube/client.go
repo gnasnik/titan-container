@@ -42,6 +42,7 @@ type Client interface {
 	PodLogs(ctx context.Context, ns string, podName string) (io.ReadCloser, error)
 	Events(ctx context.Context, ns string, opts metav1.ListOptions) (*corev1.EventList, error)
 	GetIngress(ctx context.Context, ns string, hostname string) (*netv1.Ingress, error)
+	//DescribeDeployment(ctx context.Context, ns string name string)
 	UpdateIngress(ctx context.Context, ns string, ingress *netv1.Ingress) (*netv1.Ingress, error)
 	Exec(ctx context.Context, cfgPath, ns, container, podName string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (execResult, error)

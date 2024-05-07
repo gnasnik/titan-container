@@ -86,7 +86,8 @@ type Service struct {
 	ErrorMessage string         `db:"error_message"`
 	Arguments    Arguments      `db:"arguments"`
 	ComputeResources
-	OSType OSType `db:"os_type"`
+	OSType   OSType `db:"os_type"`
+	Replicas int32  `db:"replicas"`
 
 	// Internal
 	ID           int64        `db:"id"`

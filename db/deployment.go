@@ -41,10 +41,10 @@ func addNewDeployment(ctx context.Context, tx *sqlx.Tx, deployment *types.Deploy
 }
 
 func addNewServices(ctx context.Context, tx *sqlx.Tx, services []*types.Service) error {
-	qry := `INSERT INTO services (id, name, image, ports, cpu, gpu, memory, storage, deployment_id, env, arguments, error_message, created_at, updated_at) 
-		        VALUES (:id,:name, :image, :ports, :cpu, :gpu, :memory, :storage, :deployment_id, :env, :arguments, :error_message, :created_at, :updated_at) 
+	qry := `INSERT INTO services (id, name, image, ports, cpu, gpu, memory, storage, deployment_id, env, arguments, error_message, replicas, created_at, updated_at) 
+		        VALUES (:id,:name, :image, :ports, :cpu, :gpu, :memory, :storage, :deployment_id, :env, :arguments, :error_message, :replicas, :created_at, :updated_at) 
 		        ON DUPLICATE KEY UPDATE image=VALUES(image), ports=VALUES(ports), cpu=VALUES(cpu), gpu=VALUES(gpu), memory=VALUES(memory), storage=VALUES(storage),
-		        env=VALUES(env), arguments=VALUES(arguments), error_message=VALUES(error_message)`
+		        env=VALUES(env), arguments=VALUES(arguments), error_message=VALUES(error_message), replicas=VALUES(replicas)`
 	_, err := tx.NamedExecContext(ctx, qry, services)
 
 	return err
@@ -68,6 +68,7 @@ func (m *ManagerDB) GetDeployments(ctx context.Context, option *types.GetDeploym
 			s.env as 'service.env', 
 			s.arguments as 'service.arguments', 
 			s.error_message  as 'service.error_message',
+			s.replicas as 'service.replicas',
 			p.host_uri  as 'provider_expose_ip'
 		FROM (%s) as d LEFT JOIN services s ON d.id = s.deployment_id LEFT JOIN providers p ON d.provider_id = p.id`
 

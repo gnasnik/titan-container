@@ -23,7 +23,6 @@ import (
 var log = logging.Logger("provider")
 
 type Client interface {
-	// ListNodes()
 	GetStatistics(ctx context.Context) (*types.ResourcesStatistics, error)
 	GetNodeResources(ctx context.Context, nodeName string) (*types.ResourcesStatistics, error)
 	CreateDeployment(ctx context.Context, deployment *types.Deployment) error

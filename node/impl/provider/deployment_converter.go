@@ -79,6 +79,10 @@ func serviceToManifestService(service *types.Service, exposeIP string) (manifest
 		return manifest.Service{}, err
 	}
 
+	if service.Replicas <= 0 {
+		service.Replicas = podReplicas
+	}
+
 	s := manifest.Service{
 		Name:      service.Name,
 		Image:     service.Image,
@@ -86,7 +90,7 @@ func serviceToManifestService(service *types.Service, exposeIP string) (manifest
 		Env:       envToManifestEnv(service.Env),
 		Resources: &resource,
 		Expose:    make([]*manifest.ServiceExpose, 0),
-		Count:     podReplicas,
+		Count:     service.Replicas,
 		Params:    storageToServiceParams(service.ComputeResources.Storage),
 		OSType:    string(service.OSType),
 	}
@@ -190,6 +194,7 @@ func k8sDeploymentToService(deployment *appsv1.Deployment) (*types.Service, erro
 		Name:      deployment.Name,
 		CreatedAt: deployment.CreationTimestamp.Time,
 		Env:       make(map[string]string),
+		Replicas:  deployment.Status.Replicas,
 	}
 
 	service.CPU = container.Resources.Limits.Cpu().AsApproximateFloat64()
@@ -256,6 +261,7 @@ func k8sStatefulSetToService(statefulSet *appsv1.StatefulSet) (*types.Service, e
 		Name:      container.Name,
 		CreatedAt: statefulSet.CreationTimestamp.Time,
 		Env:       make(map[string]string),
+		Replicas:  statefulSet.Status.Replicas,
 	}
 
 	service.CPU = container.Resources.Limits.Cpu().AsApproximateFloat64()
@@ -294,9 +300,9 @@ func k8sStatefulSetToService(statefulSet *appsv1.StatefulSet) (*types.Service, e
 
 	service.Status = status
 
-	if len(statefulSet.Status.Conditions) > 0 {
-		service.ErrorMessage = statefulSet.Status.Conditions[len(statefulSet.Status.Conditions)-1].Reason
-	}
+	//if len(statefulSet.Status.Conditions) > 0 {
+	//	service.ErrorMessage = statefulSet.Status.Conditions[len(statefulSet.Status.Conditions)-1].Reason
+	//}
 
 	return service, nil
 }
