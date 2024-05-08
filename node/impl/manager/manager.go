@@ -258,7 +258,18 @@ func (m *Manager) GetLogs(ctx context.Context, deployment *types.Deployment) ([]
 		return nil, err
 	}
 
-	return providerApi.GetLogs(ctx, deployment.ID)
+	serverLogs, err := providerApi.GetLogs(ctx, deployment.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sl := range serverLogs {
+		if len(sl.Logs) > 300 {
+			sl.Logs = sl.Logs[len(sl.Logs)-300:]
+		}
+	}
+
+	return serverLogs, nil
 }
 
 func (m *Manager) GetEvents(ctx context.Context, deployment *types.Deployment) ([]*types.ServiceEvent, error) {
