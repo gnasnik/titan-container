@@ -61,6 +61,8 @@ type ManagerStruct struct {
 
 		GetEvents func(p0 context.Context, p1 *types.Deployment) ([]*types.ServiceEvent, error) `perm:"read"`
 
+		GetIngress func(p0 context.Context, p1 types.DeploymentID) (*types.Ingress, error) `perm:"admin"`
+
 		GetLogs func(p0 context.Context, p1 *types.Deployment) ([]*types.ServiceLog, error) `perm:"read"`
 
 		GetProviderList func(p0 context.Context, p1 *types.GetProviderOption) ([]*types.Provider, error) `perm:"read"`
@@ -72,6 +74,8 @@ type ManagerStruct struct {
 		SetProperties func(p0 context.Context, p1 *types.Properties) error `perm:"admin"`
 
 		UpdateDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
+
+		UpdateIngress func(p0 context.Context, p1 types.DeploymentID, p2 map[string]string) error `perm:"admin"`
 	}
 }
 
@@ -95,6 +99,8 @@ type ProviderStruct struct {
 
 		GetEvents func(p0 context.Context, p1 types.DeploymentID) ([]*types.ServiceEvent, error) `perm:"read"`
 
+		GetIngress func(p0 context.Context, p1 types.DeploymentID) (*types.Ingress, error) `perm:"admin"`
+
 		GetLogs func(p0 context.Context, p1 types.DeploymentID) ([]*types.ServiceLog, error) `perm:"read"`
 
 		GetStatistics func(p0 context.Context) (*types.ResourcesStatistics, error) `perm:"read"`
@@ -104,6 +110,8 @@ type ProviderStruct struct {
 		Session func(p0 context.Context) (uuid.UUID, error) `perm:"admin"`
 
 		UpdateDeployment func(p0 context.Context, p1 *types.Deployment) error `perm:"admin"`
+
+		UpdateIngress func(p0 context.Context, p1 types.DeploymentID, p2 map[string]string) error `perm:"admin"`
 
 		Version func(p0 context.Context) (Version, error) `perm:"admin"`
 	}
@@ -310,6 +318,17 @@ func (s *ManagerStub) GetEvents(p0 context.Context, p1 *types.Deployment) ([]*ty
 	return *new([]*types.ServiceEvent), ErrNotSupported
 }
 
+func (s *ManagerStruct) GetIngress(p0 context.Context, p1 types.DeploymentID) (*types.Ingress, error) {
+	if s.Internal.GetIngress == nil {
+		return nil, ErrNotSupported
+	}
+	return s.Internal.GetIngress(p0, p1)
+}
+
+func (s *ManagerStub) GetIngress(p0 context.Context, p1 types.DeploymentID) (*types.Ingress, error) {
+	return nil, ErrNotSupported
+}
+
 func (s *ManagerStruct) GetLogs(p0 context.Context, p1 *types.Deployment) ([]*types.ServiceLog, error) {
 	if s.Internal.GetLogs == nil {
 		return *new([]*types.ServiceLog), ErrNotSupported
@@ -373,6 +392,17 @@ func (s *ManagerStruct) UpdateDeployment(p0 context.Context, p1 *types.Deploymen
 }
 
 func (s *ManagerStub) UpdateDeployment(p0 context.Context, p1 *types.Deployment) error {
+	return ErrNotSupported
+}
+
+func (s *ManagerStruct) UpdateIngress(p0 context.Context, p1 types.DeploymentID, p2 map[string]string) error {
+	if s.Internal.UpdateIngress == nil {
+		return ErrNotSupported
+	}
+	return s.Internal.UpdateIngress(p0, p1, p2)
+}
+
+func (s *ManagerStub) UpdateIngress(p0 context.Context, p1 types.DeploymentID, p2 map[string]string) error {
 	return ErrNotSupported
 }
 
@@ -453,6 +483,17 @@ func (s *ProviderStub) GetEvents(p0 context.Context, p1 types.DeploymentID) ([]*
 	return *new([]*types.ServiceEvent), ErrNotSupported
 }
 
+func (s *ProviderStruct) GetIngress(p0 context.Context, p1 types.DeploymentID) (*types.Ingress, error) {
+	if s.Internal.GetIngress == nil {
+		return nil, ErrNotSupported
+	}
+	return s.Internal.GetIngress(p0, p1)
+}
+
+func (s *ProviderStub) GetIngress(p0 context.Context, p1 types.DeploymentID) (*types.Ingress, error) {
+	return nil, ErrNotSupported
+}
+
 func (s *ProviderStruct) GetLogs(p0 context.Context, p1 types.DeploymentID) ([]*types.ServiceLog, error) {
 	if s.Internal.GetLogs == nil {
 		return *new([]*types.ServiceLog), ErrNotSupported
@@ -505,6 +546,17 @@ func (s *ProviderStruct) UpdateDeployment(p0 context.Context, p1 *types.Deployme
 }
 
 func (s *ProviderStub) UpdateDeployment(p0 context.Context, p1 *types.Deployment) error {
+	return ErrNotSupported
+}
+
+func (s *ProviderStruct) UpdateIngress(p0 context.Context, p1 types.DeploymentID, p2 map[string]string) error {
+	if s.Internal.UpdateIngress == nil {
+		return ErrNotSupported
+	}
+	return s.Internal.UpdateIngress(p0, p1, p2)
+}
+
+func (s *ProviderStub) UpdateIngress(p0 context.Context, p1 types.DeploymentID, p2 map[string]string) error {
 	return ErrNotSupported
 }
 

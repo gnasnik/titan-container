@@ -118,7 +118,15 @@ func kubeNginxIngressAnnotations(directive *HostnameDirective) map[string]string
 		}
 	}
 
+	// append cors
+	result[fmt.Sprintf("%s/cors-allow-credentials", root)] = "true"
+	result[fmt.Sprintf("%s/cors-allow-headers", root)] = "Authorization,Content-Type,Accept,Origin,User-Agent,DNT,Cache-Control,Token"
+	result[fmt.Sprintf("%s/cors-allow-methods", root)] = "GET, POST, OPTIONS, PUT, DELETE"
+	result[fmt.Sprintf("%s/cors-allow-origin", root)] = "*"
+	result[fmt.Sprintf("%s/cors-expose-headers", root)] = "Date"
+	result[fmt.Sprintf("%s/cors-max-age", root)] = "3600"
 	result[fmt.Sprintf("%s/enable-cors", root)] = "true"
+
 	result[fmt.Sprintf("%s/proxy-next-upstream", root)] = strBuilder.String()
 	return result
 }

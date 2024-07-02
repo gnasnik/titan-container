@@ -27,6 +27,7 @@ const shellPath = "/deployment/shell"
 var (
 	ErrDeploymentNotFound = errors.New("deployment not found")
 	ErrDomainAlreadyExist = errors.New("domain already exist")
+	ErrInvalidAnnotations = errors.New("invalid annotations")
 )
 
 // Manager represents a manager service in a cloud computing system.
@@ -449,6 +450,51 @@ func (m *Manager) GetDeploymentShellEndpoint(ctx context.Context, id types.Deplo
 	}
 
 	return endpoint, nil
+}
+
+func (m *Manager) GetIngress(ctx context.Context, id types.DeploymentID) (*types.Ingress, error) {
+	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrDeploymentNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	providerApi, err := m.ProviderManager.Get(deploy.ProviderID)
+	if err != nil {
+		return nil, err
+	}
+
+	ingress, err := providerApi.GetIngress(ctx, deploy.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return ingress, nil
+}
+
+func (m *Manager) UpdateIngress(ctx context.Context, id types.DeploymentID, annotations map[string]string) error {
+	if len(annotations) == 0 {
+		return ErrInvalidAnnotations
+	}
+
+	deploy, err := m.DB.GetDeploymentById(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrDeploymentNotFound
+	}
+
+	if err != nil {
+		return err
+	}
+
+	providerApi, err := m.ProviderManager.Get(deploy.ProviderID)
+	if err != nil {
+		return err
+	}
+
+	return providerApi.UpdateIngress(ctx, id, annotations)
 }
 
 var _ api.Manager = &Manager{}

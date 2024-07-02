@@ -70,3 +70,11 @@ func (p *Provider) DeleteDomain(ctx context.Context, id types.DeploymentID, host
 func (p *Provider) GetSufficientResourceNodes(ctx context.Context, reqResources *types.ComputeResources) ([]*types.SufficientResourceNode, error) {
 	return p.Client.GetSufficientResourceNodes(ctx, reqResources)
 }
+
+func (p *Provider) GetIngress(ctx context.Context, id types.DeploymentID) (*types.Ingress, error) {
+	return p.Client.GetIngress(ctx, id)
+}
+
+func (p *Provider) UpdateIngress(ctx context.Context, id types.DeploymentID, annotations map[string]string) error {
+	return p.Client.UpdateIngress(ctx, id, annotations)
+}

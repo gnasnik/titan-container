@@ -264,3 +264,7 @@ type Certificate struct {
 	Key  []byte
 	Cert []byte
 }
+
+type Ingress struct {
+	Annotations map[string]string
+}

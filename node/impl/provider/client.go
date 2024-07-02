@@ -37,6 +37,8 @@ type Client interface {
 	Exec(ctx context.Context, id types.DeploymentID, podName string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error)
 	GetSufficientResourceNodes(ctx context.Context, reqResources *types.ComputeResources) ([]*types.SufficientResourceNode, error)
+	GetIngress(ctx context.Context, id types.DeploymentID) (*types.Ingress, error)
+	UpdateIngress(ctx context.Context, id types.DeploymentID, annotations map[string]string) error
 }
 
 type client struct {
@@ -667,4 +669,35 @@ func countStorage(storages []*types.Storage) (ephemeralStorage int64, volumesSto
 		}
 	}
 	return
+}
+
+func (c *client) GetIngress(ctx context.Context, id types.DeploymentID) (*types.Ingress, error) {
+	deploymentID := manifest.DeploymentID{ID: string(id)}
+	ns := builder.DidNS(deploymentID)
+
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
+	if err != nil {
+		return nil, err
+	}
+
+	out := &types.Ingress{
+		Annotations: ingress.Annotations,
+	}
+
+	return out, nil
+}
+
+func (c *client) UpdateIngress(ctx context.Context, id types.DeploymentID, annotations map[string]string) error {
+	deploymentID := manifest.DeploymentID{ID: string(id)}
+	ns := builder.DidNS(deploymentID)
+
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
+	if err != nil {
+		return err
+	}
+
+	ingress.Annotations = annotations
+
+	_, err = c.kc.UpdateIngress(ctx, ns, ingress)
+	return err
 }
