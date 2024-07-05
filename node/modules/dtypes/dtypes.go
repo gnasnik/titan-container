@@ -31,3 +31,5 @@ type SetManagerConfigFunc func(cfg config.ManagerCfg) error
 // GetManagerConfigFunc is a function which is used to
 // get the sealing config.
 type GetManagerConfigFunc func() (config.ManagerCfg, error)
+
+type DNSServerAddress string

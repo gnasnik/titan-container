@@ -21,12 +21,15 @@ type ManagerCfg struct {
 	Common
 	// database address
 	DatabaseAddress string
+
+	DNSServerAddress string
 }
 
 // ProviderCfg provider config
 type ProviderCfg struct {
 	Common
 	// used when 'ListenAddress' is unspecified. must be a valid duration recognized by golang's time.ParseDuration function
+	BaseHostname     string
 	Timeout          string
 	Owner            string
 	HostURI          string

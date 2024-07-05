@@ -182,8 +182,6 @@ func (c *client) CloseDeployment(ctx context.Context, deployment *types.Deployme
 		return err
 	}
 
-	fmt.Println("==clo2se", k8sDeployment)
-
 	did := k8sDeployment.DeploymentID()
 	ns := builder.DidNS(did)
 	if len(ns) == 0 {

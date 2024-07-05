@@ -51,7 +51,7 @@ type Deployment struct {
 	Name      string          `db:"name"`
 	Owner     string          `db:"owner"`
 	State     DeploymentState `db:"state"`
-	Version   []byte          `db:"version"`
+	Version   string          `db:"version"`
 	Authority bool            `db:"authority"`
 	Services  []*Service
 

@@ -7,13 +7,14 @@ import (
 const (
 	// When changing these, update docs/API.md too
 
-	PermRead  auth.Permission = "read" // default
-	PermWrite auth.Permission = "write"
-	PermSign  auth.Permission = "sign"  // Use wallet keys for signing
-	PermAdmin auth.Permission = "admin" // Manage permissions
+	PermRead     auth.Permission = "read" // default
+	PermWrite    auth.Permission = "write"
+	PermSign     auth.Permission = "sign"     // Use wallet keys for signing
+	PermProvider auth.Permission = "provider" // only for provider
+	PermAdmin    auth.Permission = "admin"    // Manage permissions
 )
 
-var AllPermissions = []auth.Permission{PermRead, PermWrite, PermSign, PermAdmin}
+var AllPermissions = []auth.Permission{PermRead, PermWrite, PermSign, PermProvider, PermAdmin}
 var DefaultPerms = []auth.Permission{PermRead}
 
 func permissionedProxies(in, out interface{}) {

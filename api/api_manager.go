@@ -11,7 +11,7 @@ type Manager interface {
 	Common
 
 	GetStatistics(ctx context.Context, id types.ProviderID) (*types.ResourcesStatistics, error)                  //perm:read
-	ProviderConnect(ctx context.Context, url string, provider *types.Provider) error                             //perm:admin
+	ProviderConnect(ctx context.Context, url string, provider *types.Provider) error                             //perm:provider
 	GetProviderList(ctx context.Context, option *types.GetProviderOption) ([]*types.Provider, error)             //perm:read
 	GetDeploymentList(ctx context.Context, opt *types.GetDeploymentOption) (*types.GetDeploymentListResp, error) //perm:read
 	CreateDeployment(ctx context.Context, deployment *types.Deployment) error                                    //perm:admin
@@ -24,6 +24,6 @@ type Manager interface {
 	AddDeploymentDomain(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error               //perm:admin
 	DeleteDeploymentDomain(ctx context.Context, id types.DeploymentID, domain string) error                      //perm:admin
 	GetDeploymentShellEndpoint(ctx context.Context, id types.DeploymentID) (*types.ShellEndpoint, error)         //perm:admin
-	GetIngress(ctx context.Context, id types.DeploymentID) (*types.Ingress, error)                               //perm:admin
+	GetIngress(ctx context.Context, id types.DeploymentID) (*types.Ingress, error)                               //perm:read
 	UpdateIngress(ctx context.Context, id types.DeploymentID, annotations map[string]string) error               //perm:admin
 }

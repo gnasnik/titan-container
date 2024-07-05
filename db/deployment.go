@@ -161,10 +161,26 @@ func (m *ManagerDB) GetDeploymentById(ctx context.Context, id types.DeploymentID
 	return out[0], nil
 }
 
-func (m *ManagerDB) UpdateDeploymentState(ctx context.Context, id types.DeploymentID, state types.DeploymentState) error {
-	qry := `Update deployments set state = ? where id = ?`
-	_, err := m.db.ExecContext(ctx, qry, state, id)
-	return err
+func (m *ManagerDB) DeleteDeployment(ctx context.Context, id types.DeploymentID, state types.DeploymentState) error {
+	tx, err := m.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	qry := `DELETE deployments where id = ?`
+	_, err = tx.ExecContext(ctx, qry, state, id)
+	if err != nil {
+		return err
+	}
+
+	qry2 := `DELETE services where deployment_id = ?`
+	_, err = tx.ExecContext(ctx, qry2, state, id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (m *ManagerDB) AddProperties(ctx context.Context, properties *types.Properties) error {

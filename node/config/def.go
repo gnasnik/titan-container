@@ -33,9 +33,10 @@ func DefaultProviderCfg() *ProviderCfg {
 				ListenAddress: "0.0.0.0:7123",
 			},
 		},
-		Owner:   "",
-		HostURI: "",
-		Timeout: "30s",
+		BaseHostname: "provider.titannet.io",
+		Owner:        "",
+		HostURI:      "",
+		Timeout:      "30s",
 	}
 }
 

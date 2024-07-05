@@ -20,7 +20,7 @@ type CommonStruct struct {
 
 		AuthVerify func(p0 context.Context, p1 string) ([]auth.Permission, error) `perm:"read"`
 
-		Closing func(p0 context.Context) (<-chan struct{}, error) `perm:"admin"`
+		Closing func(p0 context.Context) (<-chan struct{}, error) `perm:"provider"`
 
 		Discover func(p0 context.Context) (types.OpenRPCDocument, error) `perm:"admin"`
 
@@ -30,7 +30,7 @@ type CommonStruct struct {
 
 		LogSetLevel func(p0 context.Context, p1 string, p2 string) error `perm:"admin"`
 
-		Session func(p0 context.Context) (uuid.UUID, error) `perm:"admin"`
+		Session func(p0 context.Context) (uuid.UUID, error) `perm:"provider"`
 
 		Shutdown func(p0 context.Context) error `perm:"admin"`
 
@@ -61,7 +61,7 @@ type ManagerStruct struct {
 
 		GetEvents func(p0 context.Context, p1 *types.Deployment) ([]*types.ServiceEvent, error) `perm:"read"`
 
-		GetIngress func(p0 context.Context, p1 types.DeploymentID) (*types.Ingress, error) `perm:"admin"`
+		GetIngress func(p0 context.Context, p1 types.DeploymentID) (*types.Ingress, error) `perm:"read"`
 
 		GetLogs func(p0 context.Context, p1 *types.Deployment) ([]*types.ServiceLog, error) `perm:"read"`
 
@@ -69,7 +69,7 @@ type ManagerStruct struct {
 
 		GetStatistics func(p0 context.Context, p1 types.ProviderID) (*types.ResourcesStatistics, error) `perm:"read"`
 
-		ProviderConnect func(p0 context.Context, p1 string, p2 *types.Provider) error `perm:"admin"`
+		ProviderConnect func(p0 context.Context, p1 string, p2 *types.Provider) error `perm:"provider"`
 
 		SetProperties func(p0 context.Context, p1 *types.Properties) error `perm:"admin"`
 
