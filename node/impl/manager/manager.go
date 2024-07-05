@@ -241,7 +241,7 @@ func (m *Manager) CloseDeployment(ctx context.Context, deployment *types.Deploym
 		return err
 	}
 
-	return m.DB.DeleteDeployment(ctx, deployment.ID, types.DeploymentStateClose)
+	return m.DB.DeleteDeployment(ctx, deployment.ID)
 }
 
 func (m *Manager) GetLogs(ctx context.Context, deployment *types.Deployment) ([]*types.ServiceLog, error) {

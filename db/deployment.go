@@ -161,21 +161,21 @@ func (m *ManagerDB) GetDeploymentById(ctx context.Context, id types.DeploymentID
 	return out[0], nil
 }
 
-func (m *ManagerDB) DeleteDeployment(ctx context.Context, id types.DeploymentID, state types.DeploymentState) error {
+func (m *ManagerDB) DeleteDeployment(ctx context.Context, id types.DeploymentID) error {
 	tx, err := m.db.Beginx()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	qry := `DELETE deployments where id = ?`
-	_, err = tx.ExecContext(ctx, qry, state, id)
+	qry := `DELETE FROM deployments where id = ?`
+	_, err = tx.ExecContext(ctx, qry, id)
 	if err != nil {
 		return err
 	}
 
-	qry2 := `DELETE services where deployment_id = ?`
-	_, err = tx.ExecContext(ctx, qry2, state, id)
+	qry2 := `DELETE FROM services where deployment_id = ?`
+	_, err = tx.ExecContext(ctx, qry2, id)
 	if err != nil {
 		return err
 	}
