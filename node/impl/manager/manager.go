@@ -333,7 +333,7 @@ func (m *Manager) GetDeploymentDomains(ctx context.Context, id types.DeploymentI
 	}
 
 	for _, domain := range domains {
-		if includeIP(domain.Name, provider.HostURI) {
+		if includeIP(domain.Name, provider.IP) {
 			domain.State = StateOk
 		} else {
 			domain.State = StateInvalid

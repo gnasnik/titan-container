@@ -49,7 +49,7 @@ func ConfigManager(c interface{}) Option {
 		Override(new(*manager.ProviderManager), manager.NewProviderScheduler),
 		Override(new(dtypes.SetManagerConfigFunc), modules.NewSetManagerConfigFunc),
 		Override(new(dtypes.GetManagerConfigFunc), modules.NewGetManagerConfigFunc),
-		Override(new(dtypes.DNSServerAddress), func() string { return cfg.DNSServerAddress }),
-		Override(new(*manager.DNSServer), manager.NewDNSServer),
+		Override(new(dtypes.DNSServerAddress), func() dtypes.DNSServerAddress { return dtypes.DNSServerAddress(cfg.DNSServerAddress) }),
+		Override(RunDNSServer, manager.NewDNSServer),
 	)
 }

@@ -33,10 +33,9 @@ func DefaultProviderCfg() *ProviderCfg {
 				ListenAddress: "0.0.0.0:7123",
 			},
 		},
-		BaseHostname: "provider.titannet.io",
-		Owner:        "",
-		HostURI:      "",
-		Timeout:      "30s",
+		BaseHostname:   "provider.titannet.io",
+		KubeConfigPath: "/etc/rancher/k3s/k3s.yaml",
+		Timeout:        "30s",
 	}
 }
 

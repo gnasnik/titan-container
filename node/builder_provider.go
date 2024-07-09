@@ -2,7 +2,6 @@ package node
 
 import (
 	"errors"
-
 	"github.com/Filecoin-Titan/titan-container/api"
 	"github.com/Filecoin-Titan/titan-container/node/config"
 	"github.com/Filecoin-Titan/titan-container/node/impl/provider"

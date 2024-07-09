@@ -6,6 +6,7 @@ import (
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	"github.com/Filecoin-Titan/titan-container/db"
 	"github.com/Filecoin-Titan/titan-container/node/modules/dtypes"
+	"github.com/google/uuid"
 	"strings"
 	"time"
 
@@ -45,7 +46,7 @@ func (ds *DNSServer) start() {
 		ReusePort: true,
 	}
 
-	log.Debugf("Starting DNS server on %s", ds.DNSServerAddress)
+	log.Infof("Starting DNS server on %s", ds.DNSServerAddress)
 	err := server.ListenAndServe()
 	if err != nil {
 		log.Errorf("Failed to start dns server: %s\n", err.Error())
@@ -132,6 +133,12 @@ func (h *dnsHandler) HandlerQuery(m *dns.Msg, remoteAddr string) {
 				return
 			}
 
+			if ok, err := h.ReserveDeploymentHostnames(m, domain); err != nil {
+				log.Infof("ReserveDeploymentHostnames %s", err.Error())
+				return
+			} else if ok {
+				return
+			}
 		}
 	}
 }
@@ -165,7 +172,15 @@ func (h *dnsHandler) ReserveHostnames(m *dns.Msg, domain string) (bool, error) {
 		return false, fmt.Errorf("invalid domain %s", domain)
 	}
 
+	// check if it is provider id
 	providerId := fields[0]
+	if err := uuid.Validate(providerId); err != nil {
+		return false, fmt.Errorf("invalid provider id: %s", providerId)
+	}
+
+	if len(providerId) <= 32 {
+		return false, nil
+	}
 
 	provider, err := h.dnsServer.DB.GetProviderById(context.Background(), types.ProviderID(providerId))
 	if err != nil {
@@ -175,5 +190,46 @@ func (h *dnsHandler) ReserveHostnames(m *dns.Msg, domain string) (bool, error) {
 	if rr, err := dns.NewRR(fmt.Sprintf("%s A %s", domain, provider.IP)); err == nil {
 		m.Answer = append(m.Answer, rr)
 	}
+	return true, nil
+}
+
+func (h *dnsHandler) ReserveDeploymentHostnames(m *dns.Msg, domain string) (bool, error) {
+	fields := strings.Split(domain, ".")
+	if len(fields) < 4 {
+		return false, fmt.Errorf("invalid domain %s", domain)
+	}
+
+	// check if it is deployment id
+	deploymentId := fields[0]
+	if err := uuid.Validate(deploymentId); err != nil {
+		return false, fmt.Errorf("invalid deployment id: %s", deploymentId)
+	}
+
+	deployUUID := uuid.MustParse(deploymentId)
+	deployment, err := h.dnsServer.DB.GetDeploymentById(context.Background(), types.DeploymentID(deployUUID.String()))
+	if err != nil {
+		return false, err
+	}
+
+	provider, err := h.dnsServer.DB.GetProviderById(context.Background(), deployment.ProviderID)
+	if err != nil {
+		return false, err
+	}
+
+	if rr, err := dns.NewRR(fmt.Sprintf("%s A %s", domain, provider.IP)); err == nil {
+		m.Answer = append(m.Answer, rr)
+	}
+
+	//rr := &dns.A{
+	//	Hdr: dns.RR_Header{
+	//		Name:   domain,
+	//		Rrtype: dns.TypeA,
+	//		Class:  dns.ClassINET,
+	//		Ttl:    60, // 60s
+	//	},
+	//	A: net.ParseIP(provider.IP),
+	//}
+	//m.Answer = append(m.Answer, rr)
+
 	return true, nil
 }

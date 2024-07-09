@@ -184,7 +184,7 @@ func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployme
 			}
 		}
 
-		if len(c.providerConfig.HostName) == 0 {
+		if len(c.providerConfig.IngressHostName) == 0 {
 			continue
 		}
 
@@ -192,27 +192,27 @@ func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployme
 			if builder.ShouldBeIngress(expose) {
 				hostDirective := builder.BuildHostNameDirective(
 					ns.Name(),
-					c.providerConfig.HostName,
+					c.providerConfig.IngressHostName,
 					service.Name,
 					c.providerConfig.IngressClassName,
 					expose,
 				)
 
-				var ingressTLS netv1.IngressTLS
+				var ingressTLS []netv1.IngressTLS
 				if c.providerConfig.Certificate != "" && c.providerConfig.CertificateKey != "" {
-					secret, err := getOrCreateTLSSecretFromHostname(ctx, c.kc, ns.Name(), c.providerConfig.HostName, c.providerConfig.Certificate, c.providerConfig.CertificateKey)
+					secret, err := getOrCreateTLSSecretFromHostname(ctx, c.kc, ns.Name(), c.providerConfig.IngressHostName, c.providerConfig.Certificate, c.providerConfig.CertificateKey)
 					if err != nil {
 						c.log.Errorf("getOrCreateTLSSecretFromHostname error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
 					}
 					if secret != nil {
-						ingressTLS = netv1.IngressTLS{
+						ingressTLS = append(ingressTLS, netv1.IngressTLS{
 							Hosts:      []string{hostDirective.Hostname},
 							SecretName: secret.Name,
-						}
+						})
 					}
 				}
 
-				if err := applyIngress(ctx, c.kc, builder.BuildIngress(workload, hostDirective, []netv1.IngressTLS{ingressTLS})); err != nil {
+				if err := applyIngress(ctx, c.kc, builder.BuildIngress(workload, hostDirective, ingressTLS)); err != nil {
 					c.log.Errorf("applying ingress error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
 					return err
 				}

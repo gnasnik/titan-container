@@ -36,7 +36,7 @@ func NewDeployment(workload Workload) Deployment {
 }
 
 func (b *deployment) Create() (*appsv1.Deployment, error) { // nolint:golint,unparam
-	deployment := &appsv1.Deployment{
+	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: b.Name(),
 		},
@@ -59,9 +59,9 @@ func (b *deployment) Create() (*appsv1.Deployment, error) { // nolint:golint,unp
 		},
 	}
 
-	b.appendRegistryWhiteList(deployment)
+	b.appendRegistryWhiteList(d)
 
-	return deployment, nil
+	return d, nil
 }
 
 func (b *deployment) Update(obj *appsv1.Deployment) (*appsv1.Deployment, error) { // nolint:golint,unparam

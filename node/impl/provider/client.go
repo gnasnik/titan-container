@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Filecoin-Titan/titan-container/node/repo"
 	"io"
-
 	corev1 "k8s.io/api/core/v1"
+	"os"
+	"path/filepath"
 
 	"github.com/Filecoin-Titan/titan-container/api/types"
 	"github.com/Filecoin-Titan/titan-container/node/config"
@@ -21,6 +23,8 @@ import (
 )
 
 var log = logging.Logger("provider")
+
+const ProviderHostname = "provider.titannet.io"
 
 type Client interface {
 	GetStatistics(ctx context.Context) (*types.ResourcesStatistics, error)
@@ -48,12 +52,38 @@ type client struct {
 
 var _ Client = (*client)(nil)
 
-func NewClient(config *config.ProviderCfg) (Client, error) {
-	kubeClient, err := kube.NewClient(config.KubeConfigPath, config)
+func NewClient(cfg *config.ProviderCfg, lr repo.LockedRepo) (Client, error) {
+	kubeClient, err := kube.NewClient(cfg.KubeConfigPath, cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &client{kc: kubeClient, providerCfg: config}, nil
+
+	err = configIngressHostname(lr, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &client{kc: kubeClient, providerCfg: cfg}, nil
+}
+
+func configIngressHostname(lr repo.LockedRepo, cfg *config.ProviderCfg) error {
+	homeDir := filepath.Join(lr.Path(), "cert")
+	if err := os.MkdirAll(homeDir, 0755); err != nil {
+		return fmt.Errorf("failed to mk directory %s for key pair manager: %w", homeDir, err)
+	}
+
+	providerId, err := os.ReadFile(filepath.Join(lr.Path(), "uuid"))
+	if err != nil {
+		return err
+	}
+
+	ingressHostname := string(providerId) + "." + ProviderHostname
+
+	if cfg.IngressHostName == "" {
+		cfg.IngressHostName = ingressHostname
+	}
+
+	return err
 }
 
 func (c *client) GetStatistics(ctx context.Context) (*types.ResourcesStatistics, error) {
@@ -107,7 +137,7 @@ func (c *client) GetNodeResources(ctx context.Context, nodeName string) (*types.
 
 func (c *client) CreateDeployment(ctx context.Context, deployment *types.Deployment) error {
 	if deployment.Authority {
-		deployment.ProviderExposeIP = c.providerCfg.ExposeIP
+		deployment.ProviderExposeIP = c.providerCfg.ExternalIP
 	}
 
 	cDeployment, err := ClusterDeploymentFromDeployment(deployment)
@@ -131,7 +161,7 @@ func (c *client) CreateDeployment(ctx context.Context, deployment *types.Deploym
 
 func (c *client) UpdateDeployment(ctx context.Context, deployment *types.Deployment) error {
 	if deployment.Authority {
-		deployment.ProviderExposeIP = c.providerCfg.ExposeIP
+		deployment.ProviderExposeIP = c.providerCfg.ExternalIP
 	}
 
 	k8sDeployment, err := ClusterDeploymentFromDeployment(deployment)
@@ -175,7 +205,6 @@ func (c *client) UpdateDeployment(ctx context.Context, deployment *types.Deploym
 }
 
 func (c *client) CloseDeployment(ctx context.Context, deployment *types.Deployment) error {
-	fmt.Println("==close", deployment)
 	k8sDeployment, err := ClusterDeploymentFromDeployment(deployment)
 	if err != nil {
 		log.Errorf("CloseDeployment %s", err.Error())
@@ -217,7 +246,7 @@ func (c *client) GetDeployment(ctx context.Context, id types.DeploymentID) (*typ
 		}
 	}
 
-	return &types.Deployment{ID: id, Services: services, ProviderExposeIP: c.providerCfg.ExposeIP}, nil
+	return &types.Deployment{ID: id, Services: services}, nil
 }
 
 func (c *client) GetLogs(ctx context.Context, id types.DeploymentID) ([]*types.ServiceLog, error) {
@@ -417,7 +446,7 @@ func (c *client) GetDomains(ctx context.Context, id types.DeploymentID) ([]*type
 	ns := builder.DidNS(deploymentID)
 
 	var out []*types.DeploymentDomain
-	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.IngressHostName)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +489,7 @@ func (c *client) AddDomain(ctx context.Context, id types.DeploymentID, cert *typ
 		return c.updateDomain(ctx, id, cert.Host, secret.Name)
 	}
 
-	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.IngressHostName)
 	if err != nil {
 		return err
 	}
@@ -484,7 +513,7 @@ func (c *client) DeleteDomain(ctx context.Context, id types.DeploymentID, hostna
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.IngressHostName)
 	if err != nil {
 		return err
 	}
@@ -524,7 +553,7 @@ func (c *client) updateDomain(ctx context.Context, id types.DeploymentID, hostna
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.IngressHostName)
 	if err != nil {
 		return err
 	}
@@ -673,7 +702,7 @@ func (c *client) GetIngress(ctx context.Context, id types.DeploymentID) (*types.
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.IngressHostName)
 	if err != nil {
 		return nil, err
 	}
@@ -689,7 +718,7 @@ func (c *client) UpdateIngress(ctx context.Context, id types.DeploymentID, annot
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.HostName)
+	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.IngressHostName)
 	if err != nil {
 		return err
 	}

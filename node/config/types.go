@@ -28,16 +28,23 @@ type ManagerCfg struct {
 // ProviderCfg provider config
 type ProviderCfg struct {
 	Common
-	// used when 'ListenAddress' is unspecified. must be a valid duration recognized by golang's time.ParseDuration function
-	BaseHostname     string
-	Timeout          string
-	Owner            string
-	HostURI          string
-	HostName         string
-	Certificate      string
-	CertificateKey   string
-	ExposeIP         string
+	BaseHostname string
+	// Timeout string specifies the duration to wait before timing out
+	Timeout string
+	// Owner string identifies the owner of the resource
+	Owner string
+	// ExternalIP If the external IP is empty, it should be automatically obtained
+	ExternalIP string
+	// IngressHostName specifies the ingress hostname associated with the resource
+	IngressHostName string
+	// Certificate is the path to the security certificate file
+	Certificate string
+	// CertificateKey is the path to the key file for the security certificate
+	CertificateKey string
+	// IngressClassName specifies the class of the ingress resource
 	IngressClassName string
-	KubeConfigPath   string
-	WalletDir        string
+	// KubeConfigPath specifies the path to the Kubernetes configuration file
+	KubeConfigPath string
+	// WalletDir specifies the directory path where the wallet files are stored
+	WalletDir string
 }

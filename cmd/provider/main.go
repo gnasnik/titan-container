@@ -138,6 +138,10 @@ var runCmd = &cli.Command{
 			Name:  "http-server-timeout",
 			Value: "30s",
 		},
+		&cli.StringFlag{
+			Name:  "l1",
+			Value: "",
+		},
 	},
 
 	Before: func(cctx *cli.Context) error {
@@ -334,7 +338,7 @@ var runCmd = &cli.Command{
 							&types.Provider{
 								ID:      types.ProviderID(providerID),
 								Owner:   providerCfg.Owner,
-								HostURI: providerCfg.HostURI,
+								HostURI: providerCfg.ExternalIP,
 								Scheme:  scheme,
 							}); err != nil {
 							log.Errorf("Registering provider failed: %+v", err)

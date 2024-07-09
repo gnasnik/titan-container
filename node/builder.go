@@ -38,6 +38,8 @@ const (
 
 	ConfigWsHandler
 
+	RunDNSServer
+
 	_nInvokes // keep this last
 )
 
