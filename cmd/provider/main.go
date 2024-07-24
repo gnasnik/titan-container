@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	tls "crypto/tls"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Filecoin-Titan/titan-container/api"
@@ -139,8 +140,12 @@ var runCmd = &cli.Command{
 			Value: "30s",
 		},
 		&cli.StringFlag{
-			Name:  "l1",
+			Name:  "manager-api-url",
 			Value: "",
+		},
+		&cli.BoolFlag{
+			Name:  "with-guardian",
+			Value: false,
 		},
 	},
 
@@ -231,11 +236,29 @@ var runCmd = &cli.Command{
 			}
 		}
 
+		cert, key, err := lr.Certificate()
+		if err != nil {
+			if err == repo.ErrNoCertificate || err == repo.ErrCertificateExpired {
+				certificate, err := managerAPI.GetCertificate(ctx)
+				if err != nil {
+					return err
+				}
+
+				if cert != nil || key == nil {
+					err = lr.SetCertificate(certificate.Certificate, certificate.PrivateKey)
+					if err != nil {
+						return err
+					}
+				}
+			} else {
+				return err
+			}
+		}
+
 		providerCfg := cfg.(*config.ProviderCfg)
 
-		err = lr.Close()
-		if err != nil {
-			return err
+		if err := lr.Close(); err != nil {
+			log.Error("closing repo", err)
 		}
 
 		var providerAPI api.Provider
@@ -291,6 +314,17 @@ var runCmd = &cli.Command{
 		rpcURL := scheme + "://" + address + "/rpc/v0"
 		if len(providerCfg.API.RemoteListenAddress) > 0 {
 			rpcURL = scheme + "://" + providerCfg.API.RemoteListenAddress + "/rpc/v0"
+		} else {
+
+			localAddr, err := managerAPI.GetRemoteAddress(ctx)
+			if err != nil {
+				return xerrors.Errorf("getting remote address: %w", err)
+			}
+
+			externalIP := strings.Split(localAddr, ":")[0]
+			listenPort := strings.Split(providerCfg.API.ListenAddress, ":")[1]
+			providerCfg.API.RemoteListenAddress = externalIP + ":" + listenPort
+			rpcURL = scheme + "://" + externalIP + ":" + listenPort + "/rpc/v0"
 		}
 
 		managerSession, err := managerAPI.Session(ctx)
@@ -338,7 +372,7 @@ var runCmd = &cli.Command{
 							&types.Provider{
 								ID:      types.ProviderID(providerID),
 								Owner:   providerCfg.Owner,
-								HostURI: providerCfg.ExternalIP,
+								HostURI: providerCfg.API.RemoteListenAddress,
 								Scheme:  scheme,
 							}); err != nil {
 							log.Errorf("Registering provider failed: %+v", err)
@@ -429,40 +463,4 @@ func GenX509KeyPair() (tls.Certificate, error) {
 	}
 
 	return outCert, nil
-	//now := time.Now()
-	//template := &x509.Certificate{
-	//	SerialNumber: big.NewInt(now.Unix()),
-	//	Subject: pkix.Name{
-	//		CommonName:         "quickserve.example.com",
-	//		Country:            []string{"USA"},
-	//		Organization:       []string{"example.com"},
-	//		OrganizationalUnit: []string{"quickserve"},
-	//	},
-	//	IPAddresses:           []net.IP{net.ParseIP("0.0.0.0")},
-	//	NotBefore:             now,
-	//	NotAfter:              now.AddDate(1, 0, 1), // Valid for one year
-	//	SubjectKeyId:          []byte{113, 117, 105, 99, 107, 115, 101, 114, 118, 101},
-	//	BasicConstraintsValid: true,
-	//	IsCA:                  true,
-	//	//ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-	//	//KeyUsage: x509.KeyUsageKeyEncipherment |
-	//	//	x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-	//}
-	//
-	//priv, err := rsa.GenerateKey(rand.Reader, 2048)
-	//if err != nil {
-	//	return tls.Certificate{}, err
-	//}
-	//
-	//cert, err := x509.CreateCertificate(rand.Reader, template, template,
-	//	priv.Public(), priv)
-	//if err != nil {
-	//	return tls.Certificate{}, err
-	//}
-	//
-	//var outCert tls.Certificate
-	//outCert.Certificate = append(outCert.Certificate, cert)
-	//outCert.PrivateKey = priv
-	//
-	//return outCert, nil
 }

@@ -15,8 +15,8 @@ func (m *ManagerDB) GetDomain(ctx context.Context, hostname string) (*types.Depl
 }
 
 func (m *ManagerDB) AddDomain(ctx context.Context, domain *types.DeploymentDomain) error {
-	statement := `INSERT INTO domains (name, state, deployment_id, created_at, updated_at) VALUES (:name, :state, :deployment_id, :created_at, :updated_at) 
-		ON DUPLICATE KEY UPDATE deployment_id = VALUES(deployment_id), updated_at = NOW();`
+	statement := `INSERT INTO domains (name, state, deployment_id, provider_id, created_at, updated_at) VALUES (:name, :state, :deployment_id, :provider_id, :created_at, :updated_at) 
+		ON DUPLICATE KEY UPDATE deployment_id = VALUES(deployment_id), provider_id = values(provider_id), updated_at = NOW();`
 	_, err := m.db.NamedExecContext(ctx, statement, domain)
 	return err
 }

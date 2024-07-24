@@ -53,6 +53,8 @@ type ManagerStruct struct {
 
 		DeleteDeploymentDomain func(p0 context.Context, p1 types.DeploymentID, p2 string) error `perm:"admin"`
 
+		GetCertificate func(p0 context.Context) (*types.Certificate, error) `perm:"read"`
+
 		GetDeploymentDomains func(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) `perm:"read"`
 
 		GetDeploymentList func(p0 context.Context, p1 *types.GetDeploymentOption) (*types.GetDeploymentListResp, error) `perm:"read"`
@@ -66,6 +68,8 @@ type ManagerStruct struct {
 		GetLogs func(p0 context.Context, p1 *types.Deployment) ([]*types.ServiceLog, error) `perm:"read"`
 
 		GetProviderList func(p0 context.Context, p1 *types.GetProviderOption) ([]*types.Provider, error) `perm:"read"`
+
+		GetRemoteAddress func(p0 context.Context) (string, error) `perm:"read"`
 
 		GetStatistics func(p0 context.Context, p1 types.ProviderID) (*types.ResourcesStatistics, error) `perm:"read"`
 
@@ -274,6 +278,17 @@ func (s *ManagerStub) DeleteDeploymentDomain(p0 context.Context, p1 types.Deploy
 	return ErrNotSupported
 }
 
+func (s *ManagerStruct) GetCertificate(p0 context.Context) (*types.Certificate, error) {
+	if s.Internal.GetCertificate == nil {
+		return nil, ErrNotSupported
+	}
+	return s.Internal.GetCertificate(p0)
+}
+
+func (s *ManagerStub) GetCertificate(p0 context.Context) (*types.Certificate, error) {
+	return nil, ErrNotSupported
+}
+
 func (s *ManagerStruct) GetDeploymentDomains(p0 context.Context, p1 types.DeploymentID) ([]*types.DeploymentDomain, error) {
 	if s.Internal.GetDeploymentDomains == nil {
 		return *new([]*types.DeploymentDomain), ErrNotSupported
@@ -349,6 +364,17 @@ func (s *ManagerStruct) GetProviderList(p0 context.Context, p1 *types.GetProvide
 
 func (s *ManagerStub) GetProviderList(p0 context.Context, p1 *types.GetProviderOption) ([]*types.Provider, error) {
 	return *new([]*types.Provider), ErrNotSupported
+}
+
+func (s *ManagerStruct) GetRemoteAddress(p0 context.Context) (string, error) {
+	if s.Internal.GetRemoteAddress == nil {
+		return "", ErrNotSupported
+	}
+	return s.Internal.GetRemoteAddress(p0)
+}
+
+func (s *ManagerStub) GetRemoteAddress(p0 context.Context) (string, error) {
+	return "", ErrNotSupported
 }
 
 func (s *ManagerStruct) GetStatistics(p0 context.Context, p1 types.ProviderID) (*types.ResourcesStatistics, error) {

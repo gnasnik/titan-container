@@ -13,7 +13,7 @@ import (
 const (
 	// ServerIDName Server ID key name in the keystore
 	ServerIDName = "server-id" //nolint:gosec
-	// KTServerIDSecret Key type for server ID secret
+	// KTServerIDSecret PrivateKey type for server ID secret
 	KTServerIDSecret = "server-id-secret" //nolint:gosec
 )
 

@@ -126,15 +126,15 @@ func (h *dnsHandler) HandlerQuery(m *dns.Msg, remoteAddr string) {
 		case dns.TypeA:
 			log.Debugf("Query for %s, remote address %s\n", q.Name, remoteAddr)
 
-			if ok, err := h.ReserveHostnames(m, domain); err != nil {
-				log.Infof("ReserveHostnames %s", err.Error())
+			if ok, err := h.ReserveDeploymentHostnames(m, domain); err != nil {
+				log.Infof("ReserveDeploymentHostnames %s", err.Error())
 				return
 			} else if ok {
 				return
 			}
 
-			if ok, err := h.ReserveDeploymentHostnames(m, domain); err != nil {
-				log.Infof("ReserveDeploymentHostnames %s", err.Error())
+			if ok, err := h.ReserveCustomHostnames(m, domain); err != nil {
+				log.Infof("ReserveCustomHostnames %s", err.Error())
 				return
 			} else if ok {
 				return
@@ -166,23 +166,18 @@ func (h *dnsHandler) handlerCAARecord(m *dns.Msg, domain string) error {
 	return err
 }
 
-func (h *dnsHandler) ReserveHostnames(m *dns.Msg, domain string) (bool, error) {
+func (h *dnsHandler) ReserveCustomHostnames(m *dns.Msg, domain string) (bool, error) {
 	fields := strings.Split(domain, ".")
 	if len(fields) < 4 {
 		return false, fmt.Errorf("invalid domain %s", domain)
 	}
 
-	// check if it is provider id
-	providerId := fields[0]
-	if err := uuid.Validate(providerId); err != nil {
-		return false, fmt.Errorf("invalid provider id: %s", providerId)
+	customDomain, err := h.dnsServer.DB.GetDomain(context.Background(), domain)
+	if err != nil {
+		return false, err
 	}
 
-	if len(providerId) <= 32 {
-		return false, nil
-	}
-
-	provider, err := h.dnsServer.DB.GetProviderById(context.Background(), types.ProviderID(providerId))
+	provider, err := h.dnsServer.DB.GetProviderById(context.Background(), types.ProviderID(customDomain.ProviderID))
 	if err != nil {
 		return false, err
 	}
@@ -202,7 +197,7 @@ func (h *dnsHandler) ReserveDeploymentHostnames(m *dns.Msg, domain string) (bool
 	// check if it is deployment id
 	deploymentId := fields[0]
 	if err := uuid.Validate(deploymentId); err != nil {
-		return false, fmt.Errorf("invalid deployment id: %s", deploymentId)
+		return false, nil
 	}
 
 	deployUUID := uuid.MustParse(deploymentId)
@@ -219,17 +214,6 @@ func (h *dnsHandler) ReserveDeploymentHostnames(m *dns.Msg, domain string) (bool
 	if rr, err := dns.NewRR(fmt.Sprintf("%s A %s", domain, provider.IP)); err == nil {
 		m.Answer = append(m.Answer, rr)
 	}
-
-	//rr := &dns.A{
-	//	Hdr: dns.RR_Header{
-	//		Name:   domain,
-	//		Rrtype: dns.TypeA,
-	//		Class:  dns.ClassINET,
-	//		Ttl:    60, // 60s
-	//	},
-	//	A: net.ParseIP(provider.IP),
-	//}
-	//m.Answer = append(m.Answer, rr)
 
 	return true, nil
 }

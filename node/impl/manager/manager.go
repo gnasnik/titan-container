@@ -2,8 +2,10 @@ package manager
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"github.com/Filecoin-Titan/titan-container/node/impl/manager/cert"
 	"net"
 	"net/url"
 	"strings"
@@ -27,6 +29,7 @@ const shellPath = "/deployment/shell"
 var (
 	ErrDeploymentNotFound = errors.New("deployment not found")
 	ErrDomainAlreadyExist = errors.New("domain already exist")
+	ErrInvalidDomain      = errors.New("invalid domain")
 	ErrInvalidAnnotations = errors.New("invalid annotations")
 )
 
@@ -41,6 +44,34 @@ type Manager struct {
 
 	SetManagerConfigFunc dtypes.SetManagerConfigFunc
 	GetManagerConfigFunc dtypes.GetManagerConfigFunc
+
+	Kpm cert.KeyPairManager
+}
+
+func (m *Manager) GetRemoteAddress(ctx context.Context) (string, error) {
+	remoteAddr := handler.GetRemoteAddr(ctx)
+	return remoteAddr, nil
+}
+
+func (m *Manager) GetCertificate(ctx context.Context) (*types.Certificate, error) {
+	certificate, privateKey, err := m.Kpm.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	cert, err := tls.X509KeyPair(certificate, privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("load tls config failed, error:%s", err.Error())
+	}
+
+	if len(cert.Certificate) == 0 {
+		return nil, fmt.Errorf("no certificate found in the provided tls.Certificate")
+	}
+
+	return &types.Certificate{
+		Certificate: certificate,
+		PrivateKey:  privateKey,
+	}, nil
 }
 
 func (m *Manager) GetStatistics(ctx context.Context, id types.ProviderID) (*types.ResourcesStatistics, error) {
@@ -125,7 +156,12 @@ func (m *Manager) CreateDeployment(ctx context.Context, deployment *types.Deploy
 	}
 
 	// TODO: authority validation
+	providerExternalIP, err := m.ProviderManager.GetRemoteAddr(deployment.ProviderID)
+	if err != nil {
+		return err
+	}
 
+	deployment.ProviderExposeIP = providerExternalIP
 	deployment.ID = types.DeploymentID(uuid.New().String())
 	deployment.State = types.DeploymentStateActive
 	deployment.CreatedAt = time.Now()
@@ -178,6 +214,13 @@ func (m *Manager) UpdateDeployment(ctx context.Context, deployment *types.Deploy
 	if err != nil {
 		return err
 	}
+
+	providerExternalIP, err := m.ProviderManager.GetRemoteAddr(deployment.ProviderID)
+	if err != nil {
+		return err
+	}
+
+	deployment.ProviderExposeIP = providerExternalIP
 
 	if len(deployment.Name) == 0 {
 		deployment.Name = deploy.Name
@@ -359,7 +402,11 @@ func includeIP(hostname string, expectedIP string) bool {
 }
 
 func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error {
-	domain, err := m.DB.GetDomain(ctx, cert.Host)
+	if cert.Hostname == "" {
+		return ErrInvalidDomain
+	}
+
+	domain, err := m.DB.GetDomain(ctx, cert.Hostname)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -389,7 +436,8 @@ func (m *Manager) AddDeploymentDomain(ctx context.Context, id types.DeploymentID
 
 	return m.DB.AddDomain(ctx, &types.DeploymentDomain{
 		DeploymentID: string(id),
-		Name:         cert.Host,
+		Name:         cert.Hostname,
+		ProviderID:   string(deploy.ProviderID),
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	})

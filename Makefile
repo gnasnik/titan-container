@@ -51,7 +51,7 @@ build: manager provider
 install: install-manager install-provider
 
 install-manager:
-	install -C ./titan-manager /usr/local/bin/titan-manager
+	install -C ./manager /usr/local/bin/manager
 
 install-provider:
-	install -C ./titan-provider /usr/local/bin/titan-provider
+	install -C ./provider /usr/local/bin/provider

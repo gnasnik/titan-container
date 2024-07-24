@@ -2,14 +2,16 @@ package repo
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ipfs/go-datastore"
 	"github.com/mitchellh/go-homedir"
@@ -37,6 +39,10 @@ const (
 	fsKeystore   = "keystore"
 	fsPrivateKey = "private.key"
 	fsUUID       = "uuid"
+	fsCert       = "cert"
+	fsCAKey      = "titannet.io.key"
+	fsCACrt      = "titannet.io.crt"
+	fsDeployID   = "deployment.id"
 )
 
 func NewRepoTypeFromString(t string) RepoType {
@@ -232,7 +238,7 @@ func (fsr *FsRepo) APIEndpoint() (multiaddr.Multiaddr, error) {
 	}
 	defer f.Close() //nolint: errcheck // Read only op
 
-	data, err := ioutil.ReadAll(f)
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to read %q: %w", p, err)
 	}
@@ -257,7 +263,7 @@ func (fsr *FsRepo) APIToken() ([]byte, error) {
 	}
 	defer f.Close() //nolint: errcheck // Read only op
 
-	tb, err := ioutil.ReadAll(f)
+	tb, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +282,7 @@ func (fsr *FsRepo) PrivateKey() ([]byte, error) {
 	}
 	defer f.Close() //nolint: errcheck // Read only op
 
-	tb, err := ioutil.ReadAll(f)
+	tb, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +301,7 @@ func (fsr *FsRepo) UUID() ([]byte, error) {
 	}
 	defer f.Close() //nolint: errcheck // Read only op
 
-	tb, err := ioutil.ReadAll(f)
+	tb, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
@@ -334,6 +340,29 @@ func (fsr *FsRepo) LockRO(repoType RepoType) (LockedRepo, error) {
 
 	lr.(*fsLockedRepo).readonly = true
 	return lr, nil
+}
+
+func (fsr *FsRepo) DeploymentID() ([]byte, error) {
+	p := filepath.Join(fsr.path, fsDeployID)
+	f, err := os.Open(p)
+
+	if os.IsNotExist(err) {
+		return nil, ErrNoDeployment
+	} else if err != nil {
+		return nil, err
+	}
+	defer f.Close() //nolint: errcheck // Read only op
+
+	tb, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.TrimSpace(tb), nil
+}
+
+func (fsr *FsRepo) SetDeploymentID(id []byte) error {
+	return os.WriteFile(filepath.Join(fsr.path, fsDeployID), id, 0o600)
 }
 
 type fsLockedRepo struct {
@@ -448,7 +477,7 @@ func (fsr *fsLockedRepo) SetConfig(c func(interface{})) error {
 		return err
 	}
 	// write buffer of TOML bytes to config file
-	err = ioutil.WriteFile(fsr.configPath, buf.Bytes(), 0o644)
+	err = os.WriteFile(fsr.configPath, buf.Bytes(), 0o644)
 	if err != nil {
 		return err
 	}
@@ -472,21 +501,21 @@ func (fsr *fsLockedRepo) SetAPIEndpoint(ma multiaddr.Multiaddr) error {
 	if err := fsr.stillValid(); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(fsr.join(fsAPI), []byte(ma.String()), 0o644)
+	return os.WriteFile(fsr.join(fsAPI), []byte(ma.String()), 0o644)
 }
 
 func (fsr *fsLockedRepo) SetAPIToken(token []byte) error {
 	if err := fsr.stillValid(); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(fsr.join(fsAPIToken), token, 0o600)
+	return os.WriteFile(fsr.join(fsAPIToken), token, 0o600)
 }
 
 func (fsr *fsLockedRepo) SetPrivateKey(key []byte) error {
 	if err := fsr.stillValid(); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(fsr.join(fsPrivateKey), key, 0o600)
+	return os.WriteFile(fsr.join(fsPrivateKey), key, 0o600)
 }
 
 func (fsr *fsLockedRepo) KeyStore() (types.KeyStore, error) {
@@ -500,7 +529,7 @@ func (fsr *fsLockedRepo) SetUUID(uuid []byte) error {
 	if err := fsr.stillValid(); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(fsr.join(fsUUID), uuid, 0o600)
+	return os.WriteFile(fsr.join(fsUUID), uuid, 0o600)
 }
 
 var kstrPermissionMsg = "permissions of key: '%s' are too relaxed, " +
@@ -562,7 +591,7 @@ func (fsr *fsLockedRepo) Get(name string) (types.KeyInfo, error) {
 	}
 	defer file.Close() //nolint: errcheck // read only op
 
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		return types.KeyInfo{}, xerrors.Errorf("reading key '%s': %w", name, err)
 	}
@@ -611,7 +640,7 @@ func (fsr *fsLockedRepo) put(rawName string, info types.KeyInfo, retries int) er
 		return xerrors.Errorf("encoding key '%s': %w", name, err)
 	}
 
-	err = ioutil.WriteFile(keyPath, keyData, 0o600)
+	err = os.WriteFile(keyPath, keyData, 0o600)
 	if err != nil {
 		return xerrors.Errorf("writing key '%s': %w", name, err)
 	}
@@ -637,5 +666,76 @@ func (fsr *fsLockedRepo) Delete(name string) error {
 	if err != nil {
 		return xerrors.Errorf("deleting key '%s': %w", name, err)
 	}
+	return nil
+}
+
+func (fsr *fsLockedRepo) Certificate() ([]byte, []byte, error) {
+	pc := filepath.Join(fsr.path, filepath.Join(fsCert, fsCACrt))
+	fc, err := os.Open(pc)
+
+	if os.IsNotExist(err) {
+		return nil, nil, ErrNoCertificate
+	} else if err != nil {
+		return nil, nil, err
+	}
+	defer fc.Close() //nolint: errcheck // Read only op
+
+	cert, err := io.ReadAll(fc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pk := filepath.Join(fsr.path, filepath.Join(fsCert, fsCAKey))
+	fk, err := os.Open(pk)
+
+	if os.IsNotExist(err) {
+		return nil, nil, ErrNoCertificate
+	} else if err != nil {
+		return nil, nil, err
+	}
+	defer fk.Close() //nolint: errcheck // Read only op
+	key, err := io.ReadAll(fk)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tlsCert, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(cert) == 0 {
+		return nil, nil, err
+	}
+
+	parsedCert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if parsedCert.NotAfter.Before(time.Now()) {
+		return nil, nil, ErrCertificateExpired
+	}
+
+	return cert, key, nil
+}
+
+func (fsr *fsLockedRepo) SetCertificate(crt, key []byte) error {
+	if err := fsr.stillValid(); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(fsr.join(fsCert), 0755); err != nil {
+		return fmt.Errorf("failed to mk directory: %w", err)
+	}
+
+	if err := os.WriteFile(fsr.join(filepath.Join(fsCert, fsCACrt)), crt, 0o600); err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(fsr.join(filepath.Join(fsCert, fsCAKey)), key, 0o600); err != nil {
+		return err
+	}
+
 	return nil
 }

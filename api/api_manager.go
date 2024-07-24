@@ -10,6 +10,8 @@ import (
 type Manager interface {
 	Common
 
+	GetRemoteAddress(ctx context.Context) (string, error)                                                        //perm:read
+	GetCertificate(context.Context) (*types.Certificate, error)                                                  //perm:read
 	GetStatistics(ctx context.Context, id types.ProviderID) (*types.ResourcesStatistics, error)                  //perm:read
 	ProviderConnect(ctx context.Context, url string, provider *types.Provider) error                             //perm:read
 	GetProviderList(ctx context.Context, option *types.GetProviderOption) ([]*types.Provider, error)             //perm:read

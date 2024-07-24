@@ -1,0 +1,20 @@
+Name: titan-guardian
+Authority: true
+Services:
+  - Image: titanhub/titan-l1-guardian:v0.1.19
+    Name: titan-guardian
+    CPU: 0.5
+    Memory: 500
+    Storage:
+      - Quantity: 100
+        Persistent: true
+        Mount: "/root/.titancandidate"
+      - Quantity: 500
+        Persistent: true
+        Mount: "/mnt/storage"
+    Ports:
+      - Port: 2345
+        Protocol: "TCP"
+      - Port: 2345
+        Protocol: "UDP"
+      - Port: 9000

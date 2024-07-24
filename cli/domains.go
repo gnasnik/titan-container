@@ -46,15 +46,15 @@ var GetDomainsCmd = &cli.Command{
 
 		tw := tablewriter.New(
 			tablewriter.Col("ID"),
-			tablewriter.Col("Hostname"),
+			tablewriter.Col("HostURI"),
 			tablewriter.Col("State"),
 		)
 
 		for index, domain := range domains {
 			m := map[string]interface{}{
-				"ID":       index + 1,
-				"Hostname": domain.Name,
-				"State":    domain.State,
+				"ID":      index + 1,
+				"HostURI": domain.Name,
+				"State":   domain.State,
 			}
 			tw.Write(m)
 		}
@@ -105,7 +105,7 @@ var AddDomainCmd = &cli.Command{
 		}
 
 		cert := &types.Certificate{
-			Host: hostname,
+			Hostname: hostname,
 		}
 
 		if cctx.String("cert") != "" {
@@ -113,7 +113,7 @@ var AddDomainCmd = &cli.Command{
 			if err != nil {
 				return err
 			}
-			cert.Cert = certFile
+			cert.Certificate = certFile
 		}
 
 		if cctx.String("key") != "" {
@@ -121,7 +121,7 @@ var AddDomainCmd = &cli.Command{
 			if err != nil {
 				return err
 			}
-			cert.Key = certKeyFile
+			cert.PrivateKey = certKeyFile
 		}
 
 		err = api.AddDeploymentDomain(ctx, deploymentID, cert)

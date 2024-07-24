@@ -28,13 +28,10 @@ type ManagerCfg struct {
 // ProviderCfg provider config
 type ProviderCfg struct {
 	Common
-	BaseHostname string
 	// Timeout string specifies the duration to wait before timing out
 	Timeout string
 	// Owner string identifies the owner of the resource
 	Owner string
-	// ExternalIP If the external IP is empty, it should be automatically obtained
-	ExternalIP string
 	// IngressHostName specifies the ingress hostname associated with the resource
 	IngressHostName string
 	// Certificate is the path to the security certificate file

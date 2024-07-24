@@ -230,6 +230,7 @@ type DeploymentDomain struct {
 	Name         string    `db:"name"`
 	State        string    `db:"state"`
 	DeploymentID string    `db:"deployment_id"`
+	ProviderID   string    `db:"provider_id"`
 	CreatedAt    time.Time `db:"created_at"`
 	UpdatedAt    time.Time `db:"updated_at"`
 }
@@ -260,9 +261,9 @@ type ShellResponse struct {
 }
 
 type Certificate struct {
-	Host string
-	Key  []byte
-	Cert []byte
+	Hostname    string
+	PrivateKey  []byte
+	Certificate []byte
 }
 
 type Ingress struct {

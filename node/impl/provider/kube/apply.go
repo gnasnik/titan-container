@@ -168,7 +168,7 @@ func applyIngress(ctx context.Context, kc kubernetes.Interface, b builder.Ingres
 	return err
 }
 
-func getOrCreateTLSSecretFromHostname(ctx context.Context, kc kubernetes.Interface, ns, hostname, certificate, certificateKey string) (*corev1.Secret, error) {
+func createTLSSecretByCustom(ctx context.Context, kc kubernetes.Interface, ns, hostname, certificate, certificateKey string) (*corev1.Secret, error) {
 	secret, err := kc.CoreV1().Secrets(ns).Get(ctx, hostname, metav1.GetOptions{})
 	if err == nil {
 		return secret, nil

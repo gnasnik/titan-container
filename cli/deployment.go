@@ -554,6 +554,8 @@ var ExecuteCmd = &cli.Command{
 		query.Set("stdin", stdinVal)
 		endpoint.RawQuery = query.Encode()
 
+		fmt.Println(endpoint.String())
+
 		var tty term.TTY
 		var tsq remotecommand.TerminalSizeQueue
 

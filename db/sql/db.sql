@@ -62,13 +62,11 @@ CREATE TABLE IF NOT EXISTS services(
 CREATE TABLE IF NOT EXISTS domains(
     id INT UNSIGNED AUTO_INCREMENT,
     name VARCHAR(128) NOT NULL DEFAULT '',
-    deployment_id VARCHAR(128) NOT NULL,
+    deployment_id VARCHAR(128) NOT NULL DEFAULT '',
+    provider_id VARCHAR(128) NOT NULL DEFAULT '',
     state VARCHAR(128) NOT NULL DEFAULT '',
     created_at DATETIME     DEFAULT NULL,
     updated_at DATETIME     DEFAULT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY idx_name (name)
-    )ENGINE=InnoDB COMMENT='domains';
-
-
--- alter table services add COLUMN replicas INT DEFAULT 0 AFTER error_message;
+    )ENGINE=InnoDB COMMENT='domains'

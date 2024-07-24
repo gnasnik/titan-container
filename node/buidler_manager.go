@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/Filecoin-Titan/titan-container/db"
 	"github.com/Filecoin-Titan/titan-container/node/impl/manager"
+	"github.com/Filecoin-Titan/titan-container/node/impl/manager/cert"
 	"github.com/Filecoin-Titan/titan-container/node/modules"
 	"github.com/Filecoin-Titan/titan-container/node/modules/dtypes"
 
@@ -51,5 +52,6 @@ func ConfigManager(c interface{}) Option {
 		Override(new(dtypes.GetManagerConfigFunc), modules.NewGetManagerConfigFunc),
 		Override(new(dtypes.DNSServerAddress), func() dtypes.DNSServerAddress { return dtypes.DNSServerAddress(cfg.DNSServerAddress) }),
 		Override(RunDNSServer, manager.NewDNSServer),
+		Override(new(cert.KeyPairManager), cert.NewKeyPairManager),
 	)
 }

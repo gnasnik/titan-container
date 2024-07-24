@@ -5,10 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Filecoin-Titan/titan-container/node/repo"
 	"io"
 	corev1 "k8s.io/api/core/v1"
-	"os"
 	"path/filepath"
 
 	"github.com/Filecoin-Titan/titan-container/api/types"
@@ -38,7 +36,7 @@ type Client interface {
 	GetDomains(ctx context.Context, id types.DeploymentID) ([]*types.DeploymentDomain, error)
 	AddDomain(ctx context.Context, id types.DeploymentID, cert *types.Certificate) error
 	DeleteDomain(ctx context.Context, id types.DeploymentID, hostname string) error
-	Exec(ctx context.Context, id types.DeploymentID, podName string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
+	Exec(ctx context.Context, id types.DeploymentID, serviceName string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool,
 		terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error)
 	GetSufficientResourceNodes(ctx context.Context, reqResources *types.ComputeResources) ([]*types.SufficientResourceNode, error)
 	GetIngress(ctx context.Context, id types.DeploymentID) (*types.Ingress, error)
@@ -52,13 +50,13 @@ type client struct {
 
 var _ Client = (*client)(nil)
 
-func NewClient(cfg *config.ProviderCfg, lr repo.LockedRepo) (Client, error) {
-	kubeClient, err := kube.NewClient(cfg.KubeConfigPath, cfg)
+func NewClient(basePath string, cfg *config.ProviderCfg) (Client, error) {
+	err := configDefaultCertificate(basePath, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	err = configIngressHostname(lr, cfg)
+	kubeClient, err := kube.NewClient(cfg.KubeConfigPath, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -66,24 +64,22 @@ func NewClient(cfg *config.ProviderCfg, lr repo.LockedRepo) (Client, error) {
 	return &client{kc: kubeClient, providerCfg: cfg}, nil
 }
 
-func configIngressHostname(lr repo.LockedRepo, cfg *config.ProviderCfg) error {
-	homeDir := filepath.Join(lr.Path(), "cert")
-	if err := os.MkdirAll(homeDir, 0755); err != nil {
-		return fmt.Errorf("failed to mk directory %s for key pair manager: %w", homeDir, err)
-	}
-
-	providerId, err := os.ReadFile(filepath.Join(lr.Path(), "uuid"))
-	if err != nil {
-		return err
-	}
-
-	ingressHostname := string(providerId) + "." + ProviderHostname
+func configDefaultCertificate(basePath string, cfg *config.ProviderCfg) error {
+	homeDir := filepath.Join(basePath, "cert")
 
 	if cfg.IngressHostName == "" {
-		cfg.IngressHostName = ingressHostname
+		cfg.IngressHostName = ProviderHostname
 	}
 
-	return err
+	if cfg.Certificate == "" {
+		cfg.Certificate = filepath.Join(homeDir, "titannet.io.crt")
+	}
+
+	if cfg.CertificateKey == "" {
+		cfg.CertificateKey = filepath.Join(homeDir, "titannet.io.key")
+	}
+
+	return nil
 }
 
 func (c *client) GetStatistics(ctx context.Context) (*types.ResourcesStatistics, error) {
@@ -136,10 +132,6 @@ func (c *client) GetNodeResources(ctx context.Context, nodeName string) (*types.
 }
 
 func (c *client) CreateDeployment(ctx context.Context, deployment *types.Deployment) error {
-	if deployment.Authority {
-		deployment.ProviderExposeIP = c.providerCfg.ExternalIP
-	}
-
 	cDeployment, err := ClusterDeploymentFromDeployment(deployment)
 	if err != nil {
 		log.Errorf("CreateDeployment %s", err.Error())
@@ -160,10 +152,6 @@ func (c *client) CreateDeployment(ctx context.Context, deployment *types.Deploym
 }
 
 func (c *client) UpdateDeployment(ctx context.Context, deployment *types.Deployment) error {
-	if deployment.Authority {
-		deployment.ProviderExposeIP = c.providerCfg.ExternalIP
-	}
-
 	k8sDeployment, err := ClusterDeploymentFromDeployment(deployment)
 	if err != nil {
 		log.Errorf("UpdateDeployment %s", err.Error())
@@ -464,29 +452,25 @@ func (c *client) AddDomain(ctx context.Context, id types.DeploymentID, cert *typ
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
 
-	if cert.Cert != nil && cert.Key != nil {
+	if len(cert.Certificate) > 0 && len(cert.PrivateKey) > 0 {
 		data := map[string][]byte{
-			corev1.TLSPrivateKeyKey: cert.Key,
-			corev1.TLSCertKey:       cert.Cert,
+			corev1.TLSPrivateKeyKey: cert.PrivateKey,
+			corev1.TLSCertKey:       cert.Certificate,
 		}
 
-		var (
-			err    error
-			secret *corev1.Secret
-		)
-
-		_, err = c.kc.GetSecret(ctx, ns, cert.Host)
+		var secret *corev1.Secret
+		_, err := c.kc.GetSecret(ctx, ns, cert.Hostname)
 		if err == nil {
-			secret, err = c.kc.UpdateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Host, data)
+			secret, err = c.kc.UpdateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Hostname, data)
 		} else {
-			secret, err = c.kc.CreateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Host, data)
+			secret, err = c.kc.CreateSecret(ctx, corev1.SecretTypeTLS, ns, cert.Hostname, data)
 		}
 
 		if err != nil {
 			return err
 		}
 
-		return c.updateDomain(ctx, id, cert.Host, secret.Name)
+		return c.updateDomain(ctx, id, cert.Hostname, secret.Name)
 	}
 
 	ingress, err := c.kc.GetIngress(ctx, ns, c.providerCfg.IngressHostName)
@@ -495,7 +479,7 @@ func (c *client) AddDomain(ctx context.Context, id types.DeploymentID, cert *typ
 	}
 
 	newRule := netv1.IngressRule{
-		Host: cert.Host,
+		Host: cert.Hostname,
 	}
 
 	if len(ingress.Spec.Rules) == 0 {
@@ -504,6 +488,14 @@ func (c *client) AddDomain(ctx context.Context, id types.DeploymentID, cert *typ
 
 	newRule.IngressRuleValue = ingress.Spec.Rules[0].IngressRuleValue
 	ingress.Spec.Rules = append(ingress.Spec.Rules, newRule)
+
+	secret, err := c.kc.GetSecret(ctx, ns, c.providerCfg.IngressHostName)
+	if secret != nil {
+		ingress.Spec.TLS = append(ingress.Spec.TLS, netv1.IngressTLS{
+			Hosts:      []string{cert.Hostname},
+			SecretName: secret.Name,
+		})
+	}
 
 	_, err = c.kc.UpdateIngress(ctx, ns, ingress)
 	return nil
@@ -595,19 +587,6 @@ func (c *client) getPodNameByService(ctx context.Context, ns string, serviceName
 func (c *client) Exec(ctx context.Context, id types.DeploymentID, serviceName string, stdin io.Reader, stdout, stderr io.Writer, cmd []string, tty bool, terminalSizeQueue remotecommand.TerminalSizeQueue) (types.ExecResult, error) {
 	deploymentID := manifest.DeploymentID{ID: string(id)}
 	ns := builder.DidNS(deploymentID)
-
-	//pods, err := c.kc.ListPods(context.Background(), ns, metav1.ListOptions{})
-	//if err != nil {
-	//	return types.ExecResult{Code: 0}, err
-	//}
-	//
-	//if pods == nil || len(pods.Items) == 0 {
-	//	return types.ExecResult{Code: 0}, errors.New("no pod found")
-	//}
-
-	//if len(pods.Items) < podIndex {
-	//	return types.ExecResult{Code: 0}, fmt.Errorf("pod index %d not exist", podIndex)
-	//}
 
 	podName, err := c.getPodNameByService(ctx, ns, serviceName)
 	if err != nil {

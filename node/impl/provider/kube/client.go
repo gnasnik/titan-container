@@ -198,21 +198,27 @@ func (c *client) Deploy(ctx context.Context, deployment builder.IClusterDeployme
 					expose,
 				)
 
-				var ingressTLS []netv1.IngressTLS
+				var (
+					ingressTLS []netv1.IngressTLS
+					secret     *corev1.Secret
+					err        error
+				)
+
 				if c.providerConfig.Certificate != "" && c.providerConfig.CertificateKey != "" {
-					secret, err := getOrCreateTLSSecretFromHostname(ctx, c.kc, ns.Name(), c.providerConfig.IngressHostName, c.providerConfig.Certificate, c.providerConfig.CertificateKey)
+					secret, err = createTLSSecretByCustom(ctx, c.kc, ns.Name(), c.providerConfig.IngressHostName, c.providerConfig.Certificate, c.providerConfig.CertificateKey)
 					if err != nil {
-						c.log.Errorf("getOrCreateTLSSecretFromHostname error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
-					}
-					if secret != nil {
-						ingressTLS = append(ingressTLS, netv1.IngressTLS{
-							Hosts:      []string{hostDirective.Hostname},
-							SecretName: secret.Name,
-						})
+						c.log.Errorf("createTLSSecret error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
 					}
 				}
 
-				if err := applyIngress(ctx, c.kc, builder.BuildIngress(workload, hostDirective, ingressTLS)); err != nil {
+				if secret != nil {
+					ingressTLS = append(ingressTLS, netv1.IngressTLS{
+						Hosts:      []string{hostDirective.Hostname},
+						SecretName: secret.Name,
+					})
+				}
+
+				if err = applyIngress(ctx, c.kc, builder.BuildIngress(workload, hostDirective, ingressTLS)); err != nil {
 					c.log.Errorf("applying ingress error %s, ns %s, service %s", err.Error(), ns.Name(), service.Name)
 					return err
 				}

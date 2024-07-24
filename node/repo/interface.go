@@ -34,6 +34,10 @@ var (
 	// ErrInvalidBlockstoreDomain is returned by LockedRepo#Blockstore() when
 	// an unrecognized domain is requested.
 	ErrInvalidBlockstoreDomain = errors.New("invalid blockstore domain")
+	ErrNoCertificate           = errors.New("certificate not found")
+	ErrCertificateExpired      = errors.New("certificate expired")
+
+	ErrNoDeployment = errors.New("Deployment not found")
 )
 
 type Repo interface {
@@ -51,6 +55,10 @@ type Repo interface {
 
 	// Lock locks the repo for exclusive use.
 	Lock(RepoType) (LockedRepo, error)
+
+	DeploymentID() ([]byte, error)
+
+	SetDeploymentID([]byte) error
 }
 
 type LockedRepo interface {
@@ -97,4 +105,10 @@ type LockedRepo interface {
 
 	// Readonly returns true if the repo is readonly
 	Readonly() bool
+
+	// Certificate returns certificate key, crt
+	Certificate() ([]byte, []byte, error)
+
+	// SetCertificate sets ca crt and key
+	SetCertificate([]byte, []byte) error
 }
